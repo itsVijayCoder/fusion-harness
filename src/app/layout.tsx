@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+
+const ibmPlexSans = IBM_Plex_Sans({subsets:['latin'],variable:'--font-sans'});
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -23,7 +26,7 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en">
+		<html lang="en" className={cn("font-sans", ibmPlexSans.variable)}>
 			<head>
 				<link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
 			</head>
