@@ -2,18 +2,23 @@ package discovery
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
 
 type Tool struct {
-	Tool    string `json:"tool"`
-	Found   bool   `json:"found"`
-	Path    string `json:"path,omitempty"`
-	Version string `json:"version,omitempty"`
-	Status  string `json:"status"`
-	Error   string `json:"error,omitempty"`
+	Tool     string         `json:"tool"`
+	Found    bool           `json:"found"`
+	Path     string         `json:"path,omitempty"`
+	Version  string         `json:"version,omitempty"`
+	Status   string         `json:"status"`
+	Error    string         `json:"error,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 type Report struct {
@@ -24,16 +29,57 @@ type Report struct {
 	Models   []any  `json:"models,omitempty"`
 }
 
+type CommandLookup struct {
+	Name             string
+	Binary           string
+	FallbackBinaries []string
+	EnvOverride      string
+	ExtraDirs        []string
+}
+
 func DetectCommand(name string) Tool {
-	path, err := exec.LookPath(name)
-	if err != nil {
-		return Tool{Tool: name, Found: false, Status: "unavailable", Error: err.Error()}
+	return DetectCommandWithLookup(CommandLookup{Name: name})
+}
+
+func DetectCommandWithLookup(lookup CommandLookup) Tool {
+	lookup = normalizeLookup(lookup)
+	metadata := map[string]any{}
+
+	if lookup.EnvOverride != "" {
+		override := strings.TrimSpace(os.Getenv(lookup.EnvOverride))
+		if override != "" {
+			metadata["override_env"] = lookup.EnvOverride
+			if !filepath.IsAbs(override) {
+				return unavailableTool(lookup.Name, fmt.Sprintf("%s must be an absolute path", lookup.EnvOverride), metadata)
+			}
+			tool, err := toolFromPath(lookup.Name, override, metadata)
+			if err != nil {
+				return unavailableTool(lookup.Name, err.Error(), metadata)
+			}
+			return tool
+		}
 	}
-	return Tool{Tool: name, Found: true, Path: path, Status: "detected"}
+
+	candidates := append([]string{lookup.Binary}, lookup.FallbackBinaries...)
+	for _, binary := range candidates {
+		path, source, err := lookPath(binary, lookup.ExtraDirs)
+		if err != nil {
+			continue
+		}
+		metadata["binary"] = binary
+		metadata["source"] = source
+		return Tool{Tool: lookup.Name, Found: true, Path: path, Status: "detected", Metadata: metadata}
+	}
+
+	return unavailableTool(lookup.Name, fmt.Sprintf("executable not found: %s", strings.Join(candidates, ", ")), nil)
 }
 
 func DetectCommandWithVersion(ctx context.Context, name string, versionArgs ...string) Tool {
-	tool := DetectCommand(name)
+	return DetectCommandWithVersionLookup(ctx, CommandLookup{Name: name}, versionArgs...)
+}
+
+func DetectCommandWithVersionLookup(ctx context.Context, lookup CommandLookup, versionArgs ...string) Tool {
+	tool := DetectCommandWithLookup(lookup)
 	if !tool.Found {
 		return tool
 	}
@@ -52,6 +98,26 @@ func DetectCommandWithVersion(ctx context.Context, name string, versionArgs ...s
 	tool.Version = version
 	tool.Status = "verified"
 	return tool
+}
+
+func WellKnownUserToolchainBins() []string {
+	home, _ := os.UserHomeDir()
+	dirs := []string{}
+	if home != "" {
+		dirs = append(dirs,
+			filepath.Join(home, ".local", "bin"),
+			filepath.Join(home, ".npm-global", "bin"),
+			filepath.Join(home, ".bun", "bin"),
+			filepath.Join(home, ".cargo", "bin"),
+		)
+	}
+	if agentHome := strings.TrimSpace(os.Getenv("FH_AGENT_HOME")); agentHome != "" {
+		dirs = append(dirs, agentHome, filepath.Join(agentHome, "bin"))
+	}
+	if runtime.GOOS == "darwin" {
+		dirs = append(dirs, "/opt/homebrew/bin", "/usr/local/bin")
+	}
+	return dedupeStrings(dirs)
 }
 
 func commandVersion(parent context.Context, path string, args ...string) (string, error) {
@@ -75,4 +141,76 @@ func normalizeVersionOutput(output string) string {
 		return fields[0]
 	}
 	return strings.Join(fields[:min(len(fields), 4)], " ")
+}
+
+func normalizeLookup(lookup CommandLookup) CommandLookup {
+	if lookup.Name == "" {
+		lookup.Name = lookup.Binary
+	}
+	if lookup.Binary == "" {
+		lookup.Binary = lookup.Name
+	}
+	lookup.ExtraDirs = dedupeStrings(append(lookup.ExtraDirs, WellKnownUserToolchainBins()...))
+	return lookup
+}
+
+func lookPath(binary string, extraDirs []string) (string, string, error) {
+	if filepath.IsAbs(binary) {
+		tool, err := toolFromPath(binary, binary, nil)
+		if err != nil {
+			return "", "", err
+		}
+		return tool.Path, "absolute", nil
+	}
+
+	if path, err := exec.LookPath(binary); err == nil {
+		return path, "path", nil
+	}
+
+	for _, dir := range extraDirs {
+		if dir == "" {
+			continue
+		}
+		candidate := filepath.Join(dir, binary)
+		if _, err := toolFromPath(binary, candidate, nil); err == nil {
+			return candidate, "extra_dir", nil
+		}
+	}
+
+	return "", "", exec.ErrNotFound
+}
+
+func toolFromPath(name string, path string, metadata map[string]any) (Tool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return Tool{}, err
+	}
+	if info.IsDir() {
+		return Tool{}, fmt.Errorf("%s is a directory", path)
+	}
+	if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
+		return Tool{}, fmt.Errorf("%s is not executable", path)
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	metadata["binary"] = filepath.Base(path)
+	return Tool{Tool: name, Found: true, Path: path, Status: "detected", Metadata: metadata}, nil
+}
+
+func unavailableTool(name string, message string, metadata map[string]any) Tool {
+	return Tool{Tool: name, Found: false, Status: "unavailable", Error: message, Metadata: metadata}
+}
+
+func dedupeStrings(values []string) []string {
+	seen := map[string]bool{}
+	deduped := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		deduped = append(deduped, value)
+	}
+	return deduped
 }

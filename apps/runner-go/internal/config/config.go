@@ -17,6 +17,7 @@ type Config struct {
 	CloudURL       string   `json:"cloud_url"`
 	Token          string   `json:"token,omitempty"`
 	AllowedRoots   []string `json:"allowed_roots"`
+	ToolDirs       []string `json:"tool_dirs,omitempty"`
 	DefaultProfile string   `json:"default_profile"`
 }
 
@@ -68,6 +69,9 @@ func Load() (Config, error) {
 	}
 	if envToken := os.Getenv("FUSION_RUNNER_TOKEN"); envToken != "" {
 		cfg.Token = envToken
+	}
+	if envToolDirs := os.Getenv("FUSION_AGENT_TOOL_DIRS"); envToolDirs != "" {
+		cfg.ToolDirs = append(cfg.ToolDirs, filepath.SplitList(envToolDirs)...)
 	}
 
 	return cfg, nil

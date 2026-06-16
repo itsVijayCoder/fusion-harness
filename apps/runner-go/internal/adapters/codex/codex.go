@@ -11,14 +11,15 @@ import (
 
 type Adapter struct {
 	AllowedRoots []string
+	ToolDirs     []string
 }
 
 func (Adapter) ID() string {
 	return "codex"
 }
 
-func (Adapter) Detect(ctx context.Context) adapters.DetectionResult {
-	tool := discovery.DetectCommandWithVersion(ctx, "codex", "--version")
+func (adapter Adapter) Detect(ctx context.Context) adapters.DetectionResult {
+	tool := detect(ctx, adapter.ToolDirs)
 	return adapters.DetectionResult{
 		Tool:     "codex",
 		Found:    tool.Found,
@@ -32,11 +33,24 @@ func (Adapter) Detect(ctx context.Context) adapters.DetectionResult {
 }
 
 func Detect() discovery.Tool {
-	return discovery.DetectCommandWithVersion(context.Background(), "codex", "--version")
+	return DetectWithDirs(context.Background(), nil)
 }
 
-func (Adapter) ListModels(context.Context) ([]adapters.ModelRef, error) {
-	if !Detect().Found {
+func DetectWithDirs(ctx context.Context, toolDirs []string) discovery.Tool {
+	return detect(ctx, toolDirs)
+}
+
+func detect(ctx context.Context, toolDirs []string) discovery.Tool {
+	return discovery.DetectCommandWithVersionLookup(ctx, discovery.CommandLookup{
+		Name:        "codex",
+		Binary:      "codex",
+		EnvOverride: "CODEX_BIN",
+		ExtraDirs:   toolDirs,
+	}, "--version")
+}
+
+func (adapter Adapter) ListModels(ctx context.Context) ([]adapters.ModelRef, error) {
+	if !detect(ctx, adapter.ToolDirs).Found {
 		return nil, nil
 	}
 
@@ -73,8 +87,17 @@ func (adapter Adapter) Run(ctx context.Context, input adapters.RunInput, emit fu
 	}
 	args = append(args, input.Prompt)
 
+	tool := detect(ctx, adapter.ToolDirs)
+	if !tool.Found {
+		return &adapters.RunResult{
+			Status:    "failed",
+			Error:     tool.Error,
+			LatencyMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+
 	result, err := host.Run(ctx, host.CommandSpec{
-		Name:         "codex",
+		Name:         tool.Path,
 		Args:         args,
 		WorkingDir:   input.WorkspacePath,
 		AllowedRoots: adapter.AllowedRoots,

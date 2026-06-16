@@ -154,7 +154,7 @@ func runConfig(args []string) error {
 	}
 
 	if args[0] != "set" || len(args) < 3 {
-		return fmt.Errorf("usage: fusion-runner config set <cloud-url|token|runner-id|default-profile|allowed-root> <value>")
+		return fmt.Errorf("usage: fusion-runner config set <cloud-url|token|runner-id|default-profile|allowed-root|tool-dir> <value>")
 	}
 
 	cfg, err := config.Load()
@@ -173,6 +173,8 @@ func runConfig(args []string) error {
 		cfg.DefaultProfile = args[2]
 	case "allowed-root":
 		cfg.AllowedRoots = append(cfg.AllowedRoots, args[2])
+	case "tool-dir":
+		cfg.ToolDirs = append(cfg.ToolDirs, args[2])
 	default:
 		return fmt.Errorf("unknown config key %q", args[1])
 	}
@@ -287,8 +289,8 @@ func buildDiscoveryReport(ctx context.Context) (discovery.Report, error) {
 		return discovery.Report{}, err
 	}
 
-	opencodeAdapter := opencode.Adapter{AllowedRoots: cfg.AllowedRoots}
-	codexAdapter := codex.Adapter{AllowedRoots: cfg.AllowedRoots}
+	opencodeAdapter := opencode.Adapter{AllowedRoots: cfg.AllowedRoots, ToolDirs: cfg.ToolDirs}
+	codexAdapter := codex.Adapter{AllowedRoots: cfg.AllowedRoots, ToolDirs: cfg.ToolDirs}
 	models := make([]any, 0)
 
 	for _, adapter := range []adapters.Adapter{opencodeAdapter, codexAdapter} {
@@ -306,8 +308,8 @@ func buildDiscoveryReport(ctx context.Context) (discovery.Report, error) {
 		OS:       runtime.GOOS,
 		Arch:     runtime.GOARCH,
 		Tools: []discovery.Tool{
-			opencode.Detect(),
-			codex.Detect(),
+			opencode.DetectWithDirs(ctx, cfg.ToolDirs),
+			codex.DetectWithDirs(ctx, cfg.ToolDirs),
 			docker.Detect(),
 			discovery.DetectCommandWithVersion(ctx, "git", "--version"),
 		},

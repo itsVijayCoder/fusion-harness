@@ -12,14 +12,15 @@ import (
 
 type Adapter struct {
 	AllowedRoots []string
+	ToolDirs     []string
 }
 
 func (Adapter) ID() string {
 	return "opencode"
 }
 
-func (Adapter) Detect(ctx context.Context) adapters.DetectionResult {
-	tool := discovery.DetectCommandWithVersion(ctx, "opencode", "--version")
+func (adapter Adapter) Detect(ctx context.Context) adapters.DetectionResult {
+	tool := detect(ctx, adapter.ToolDirs)
 	return adapters.DetectionResult{
 		Tool:    "opencode",
 		Found:   tool.Found,
@@ -32,17 +33,31 @@ func (Adapter) Detect(ctx context.Context) adapters.DetectionResult {
 }
 
 func Detect() discovery.Tool {
-	return discovery.DetectCommandWithVersion(context.Background(), "opencode", "--version")
+	return DetectWithDirs(context.Background(), nil)
+}
+
+func DetectWithDirs(ctx context.Context, toolDirs []string) discovery.Tool {
+	return detect(ctx, toolDirs)
+}
+
+func detect(ctx context.Context, toolDirs []string) discovery.Tool {
+	return discovery.DetectCommandWithVersionLookup(ctx, discovery.CommandLookup{
+		Name:             "opencode",
+		Binary:           "opencode-cli",
+		FallbackBinaries: []string{"opencode"},
+		EnvOverride:      "OPENCODE_BIN",
+		ExtraDirs:        toolDirs,
+	}, "--version")
 }
 
 func (adapter Adapter) ListModels(ctx context.Context) ([]adapters.ModelRef, error) {
-	tool := Detect()
+	tool := detect(ctx, adapter.ToolDirs)
 	if !tool.Found {
 		return nil, nil
 	}
 
 	result, err := host.Run(ctx, host.CommandSpec{
-		Name:         "opencode",
+		Name:         tool.Path,
 		Args:         []string{"models"},
 		WorkingDir:   firstAllowedRoot(adapter.AllowedRoots),
 		AllowedRoots: adapter.AllowedRoots,
@@ -72,8 +87,17 @@ func (adapter Adapter) Run(ctx context.Context, input adapters.RunInput, emit fu
 	}
 	args = append(args, input.Prompt)
 
+	tool := detect(ctx, adapter.ToolDirs)
+	if !tool.Found {
+		return &adapters.RunResult{
+			Status:    "failed",
+			Error:     tool.Error,
+			LatencyMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+
 	result, err := host.Run(ctx, host.CommandSpec{
-		Name:         "opencode",
+		Name:         tool.Path,
 		Args:         args,
 		WorkingDir:   input.WorkspacePath,
 		AllowedRoots: adapter.AllowedRoots,
