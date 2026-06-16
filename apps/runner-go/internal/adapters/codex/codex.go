@@ -79,11 +79,10 @@ func (adapter Adapter) Run(ctx context.Context, input adapters.RunInput, emit fu
 		emit(adapters.RunEvent{Type: "panel.job.started", RunID: input.RunID, JobID: input.JobID, Timestamp: start.UTC().Format(time.RFC3339), Data: map[string]any{"adapter": "codex"}})
 	}
 
-	args := []string{"exec", "--sandbox", sandboxForProfile(input.PermissionProfile)}
+	args := []string{"exec", "--json", "--skip-git-repo-check", "--sandbox", sandboxForProfile(input.PermissionProfile)}
 	if input.Model != "" {
 		args = append(args, "--model", input.Model)
 	}
-	args = append(args, input.Prompt)
 
 	tool := detect(ctx, adapter.ToolDirs)
 	if !tool.Found {
@@ -97,6 +96,7 @@ func (adapter Adapter) Run(ctx context.Context, input adapters.RunInput, emit fu
 	result, err := host.Run(ctx, host.CommandSpec{
 		Name:         tool.Path,
 		Args:         args,
+		Stdin:        input.Prompt,
 		WorkingDir:   input.WorkspacePath,
 		AllowedRoots: adapter.AllowedRoots,
 		Env:          input.Env,

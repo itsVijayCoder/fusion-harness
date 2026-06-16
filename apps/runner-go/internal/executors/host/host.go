@@ -15,6 +15,7 @@ import (
 type CommandSpec struct {
 	Name         string
 	Args         []string
+	Stdin        string
 	WorkingDir   string
 	AllowedRoots []string
 	Env          map[string]string
@@ -56,6 +57,9 @@ func Run(ctx context.Context, spec CommandSpec) (Result, error) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	if spec.Stdin != "" {
+		cmd.Stdin = strings.NewReader(spec.Stdin)
+	}
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
