@@ -1,12 +1,18 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiPost, apiUrl } from "@/lib/api";
 
 export function useRun(runId: string) {
   return useQuery({
     queryKey: ["run", runId],
     queryFn: async () => {
-      const res = await fetch(`/api/fusion/runs/${runId}`);
+      const res = await fetch(apiUrl(`/api/fusion/runs/${runId}`), {
+        headers: {
+          "x-fusion-dev-email": "developer@fusion.local",
+          "x-fusion-dev-name": "Fusion Developer",
+        },
+      });
       if (!res.ok) throw new Error("Failed to fetch run");
       return res.json();
     },
@@ -15,14 +21,6 @@ export function useRun(runId: string) {
 
 export function useCreateRun() {
   return useMutation({
-    mutationFn: async (body: unknown) => {
-      const res = await fetch("/api/fusion/runs", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error("Failed to create run");
-      return res.json();
-    },
+    mutationFn: (body: unknown) => apiPost("/api/fusion/runs", body),
   });
 }

@@ -1,5 +1,11 @@
-import { PlaceholderPage } from "@/features/shell/placeholder-page";
+import { PageHeader } from "@/components/product-ui";
+import { TaskConsole } from "./task-console";
 
 export default function ChatPage() {
-  return <PlaceholderPage title="Task Console" description="Prompt input, workspace, fusion mode, preset, and permission profile controls." />;
+  return (
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader title="Task Console" description="Create direct or fused runs with explicit model policy and permission profile." />
+      <TaskConsole />
+    </div>
+  );
 }
