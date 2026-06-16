@@ -10,6 +10,7 @@ type ModelRef struct {
 	DisplayName  string          `json:"displayName,omitempty"`
 	AuthMode     string          `json:"authMode"`
 	Availability string          `json:"availability"`
+	Source       string          `json:"source,omitempty"`
 	Capabilities ModelCapability `json:"capabilities"`
 }
 

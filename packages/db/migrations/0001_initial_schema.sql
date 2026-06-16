@@ -67,6 +67,7 @@ CREATE TABLE models (
   display_name TEXT,
   auth_mode TEXT NOT NULL CHECK (auth_mode IN ('cli_session', 'api_key', 'cloud_gateway', 'unknown')),
   availability TEXT NOT NULL CHECK (availability IN ('detected', 'listed', 'verified', 'configured_unverified', 'unavailable')),
+  source TEXT CHECK (source IN ('live', 'fallback', 'suggested', 'custom')),
   capabilities_json TEXT NOT NULL,
   verified_at TEXT,
   created_at TEXT NOT NULL,

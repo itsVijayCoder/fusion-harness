@@ -129,7 +129,7 @@ func parseModelLines(output string) []adapters.ModelRef {
 		if model == "" || strings.Contains(strings.ToLower(model), "model") && len(strings.Fields(model)) == 1 {
 			continue
 		}
-		models = append(models, modelRef(model, "listed"))
+		models = append(models, modelRef(model, "listed", "live"))
 	}
 
 	return models
@@ -137,12 +137,16 @@ func parseModelLines(output string) []adapters.ModelRef {
 
 func defaultModels() []adapters.ModelRef {
 	return []adapters.ModelRef{
-		modelRef("anthropic/claude-sonnet", "configured_unverified"),
-		modelRef("openai/gpt-5", "configured_unverified"),
+		modelRef("anthropic/claude-sonnet-4-5", "configured_unverified", "fallback"),
+		modelRef("openai/gpt-5", "configured_unverified", "fallback"),
+		modelRef("google/gemini-2.5-pro", "configured_unverified", "fallback"),
+		modelRef("minimax/minimax-m1", "configured_unverified", "suggested"),
+		modelRef("deepseek/deepseek-chat", "configured_unverified", "suggested"),
+		modelRef("moonshotai/kimi-k2", "configured_unverified", "suggested"),
 	}
 }
 
-func modelRef(model string, availability string) adapters.ModelRef {
+func modelRef(model string, availability string, source string) adapters.ModelRef {
 	provider := ""
 	if parts := strings.SplitN(model, "/", 2); len(parts) == 2 {
 		provider = parts[0]
@@ -156,6 +160,7 @@ func modelRef(model string, availability string) adapters.ModelRef {
 		DisplayName:  model,
 		AuthMode:     "cli_session",
 		Availability: availability,
+		Source:       source,
 		Capabilities: adapters.ModelCapability{
 			Streaming:    true,
 			Tools:        true,

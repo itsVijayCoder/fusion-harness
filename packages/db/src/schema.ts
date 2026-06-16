@@ -71,6 +71,7 @@ export const models = sqliteTable(
     displayName: text("display_name"),
     authMode: text("auth_mode").notNull(),
     availability: text("availability").notNull(),
+    source: text("source"),
     capabilitiesJson: text("capabilities_json").notNull(),
     verifiedAt: text("verified_at"),
     createdAt: text("created_at").notNull(),

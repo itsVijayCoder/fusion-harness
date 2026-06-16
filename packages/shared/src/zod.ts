@@ -3,6 +3,7 @@ import { z } from "zod";
 export const adapterIdSchema = z.enum(["opencode", "codex", "api-key", "cloudflare-ai-gateway"]);
 export const authModeSchema = z.enum(["cli_session", "api_key", "cloud_gateway", "unknown"]);
 export const modelAvailabilitySchema = z.enum(["detected", "listed", "verified", "configured_unverified", "unavailable"]);
+export const modelSourceSchema = z.enum(["live", "fallback", "suggested", "custom"]);
 export const permissionProfileSchema = z.enum(["readonly", "workspace_write", "trusted_internal"]);
 export const fusionModeSchema = z.enum(["direct", "auto", "required"]);
 export const runStatusSchema = z.enum(["queued", "running", "waiting_approval", "completed", "failed", "cancelled"]);
@@ -45,6 +46,7 @@ export const modelRefSchema = z.object({
   displayName: z.string().optional(),
   authMode: authModeSchema,
   availability: modelAvailabilitySchema,
+  source: modelSourceSchema.optional(),
   capabilities: modelCapabilitiesSchema,
 });
 

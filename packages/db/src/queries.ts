@@ -11,6 +11,7 @@ import type {
   FusionRunSummary,
   ModelAvailability,
   ModelRef,
+  ModelSource,
   PanelOutputRef,
   PanelOutputStatus,
   PermissionProfile,
@@ -137,6 +138,7 @@ type ModelRow = {
   display_name: string | null;
   auth_mode: AuthMode;
   availability: ModelAvailability;
+  source: ModelSource | null;
   capabilities_json: string;
   verified_at: string | null;
   created_at: string;
@@ -602,9 +604,9 @@ async function replaceRunnerModels(db: D1DatabaseLike, input: RunnerRegistration
       .prepare(
         `INSERT INTO models (
            id, org_id, runner_id, adapter, provider, model, display_name, auth_mode,
-           availability, capabilities_json, verified_at, created_at, updated_at
+           availability, source, capabilities_json, verified_at, created_at, updated_at
          )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            runner_id = excluded.runner_id,
            adapter = excluded.adapter,
@@ -613,6 +615,7 @@ async function replaceRunnerModels(db: D1DatabaseLike, input: RunnerRegistration
            display_name = excluded.display_name,
            auth_mode = excluded.auth_mode,
            availability = excluded.availability,
+           source = excluded.source,
            capabilities_json = excluded.capabilities_json,
            verified_at = excluded.verified_at,
            updated_at = excluded.updated_at`,
@@ -627,6 +630,7 @@ async function replaceRunnerModels(db: D1DatabaseLike, input: RunnerRegistration
         model.displayName ?? null,
         model.authMode,
         model.availability,
+        model.source ?? null,
         JSON.stringify(model.capabilities),
         model.availability === "verified" ? input.now : null,
         input.now,
@@ -702,6 +706,7 @@ function mapModel(row: ModelRow): ModelRef {
     displayName: optional(row.display_name),
     authMode: row.auth_mode,
     availability: row.availability,
+    source: optional(row.source),
     capabilities: parseJson<ModelRef["capabilities"]>(row.capabilities_json, {
       streaming: false,
       tools: false,
@@ -781,7 +786,7 @@ function parseJson<T>(value: Nullable<string>, fallback: T): T {
   }
 }
 
-function optional(value: Nullable<string>) {
+function optional<T extends string>(value: Nullable<T>) {
   return value ?? undefined;
 }
 

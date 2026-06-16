@@ -4,6 +4,8 @@ export type AuthMode = "cli_session" | "api_key" | "cloud_gateway" | "unknown";
 
 export type ModelAvailability = "detected" | "listed" | "verified" | "configured_unverified" | "unavailable";
 
+export type ModelSource = "live" | "fallback" | "suggested" | "custom";
+
 export type PermissionProfile = "readonly" | "workspace_write" | "trusted_internal";
 
 export type FusionMode = "direct" | "auto" | "required";
@@ -39,6 +41,7 @@ export type ModelRef = {
   displayName?: string;
   authMode: AuthMode;
   availability: ModelAvailability;
+  source?: ModelSource;
   capabilities: {
     streaming: boolean;
     tools: boolean;

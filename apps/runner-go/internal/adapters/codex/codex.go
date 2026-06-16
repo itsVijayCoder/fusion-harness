@@ -54,25 +54,23 @@ func (adapter Adapter) ListModels(ctx context.Context) ([]adapters.ModelRef, err
 		return nil, nil
 	}
 
-	return []adapters.ModelRef{
-		{
-			ID:           "codex/gpt-5-codex",
-			Adapter:      "codex",
-			Provider:     "openai",
-			Model:        "gpt-5-codex",
-			DisplayName:  "GPT-5 Codex",
-			AuthMode:     "cli_session",
-			Availability: "configured_unverified",
-			Capabilities: adapters.ModelCapability{
-				Streaming:    true,
-				Tools:        true,
-				FileEdits:    true,
-				Shell:        true,
-				JSONOutput:   true,
-				ModelListing: false,
-			},
-		},
-	}, nil
+	models := []string{
+		"gpt-5.5",
+		"gpt-5.4",
+		"gpt-5.4-mini",
+		"gpt-5.3-codex",
+		"gpt-5.1",
+		"gpt-5.1-codex-mini",
+		"gpt-5-codex",
+		"gpt-5",
+		"o3",
+		"o4-mini",
+	}
+	refs := make([]adapters.ModelRef, 0, len(models))
+	for _, model := range models {
+		refs = append(refs, modelRef(model))
+	}
+	return refs, nil
 }
 
 func (adapter Adapter) Run(ctx context.Context, input adapters.RunInput, emit func(adapters.RunEvent)) (*adapters.RunResult, error) {
@@ -126,5 +124,26 @@ func sandboxForProfile(profile string) string {
 		return "workspace-write"
 	default:
 		return "read-only"
+	}
+}
+
+func modelRef(model string) adapters.ModelRef {
+	return adapters.ModelRef{
+		ID:           "codex/" + model,
+		Adapter:      "codex",
+		Provider:     "openai",
+		Model:        model,
+		DisplayName:  model,
+		AuthMode:     "cli_session",
+		Availability: "configured_unverified",
+		Source:       "fallback",
+		Capabilities: adapters.ModelCapability{
+			Streaming:    true,
+			Tools:        true,
+			FileEdits:    true,
+			Shell:        true,
+			JSONOutput:   true,
+			ModelListing: false,
+		},
 	}
 }
