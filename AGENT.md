@@ -2,8 +2,8 @@
 
 This file defines how coding agents should work in this repository. Treat the two planning docs as the product source of truth:
 
-- `Docs/fusion-harness-product-plan.md`
-- `Docs/fusion-harness-implementation-guide.md`
+- `Docs/FH_PRODUCT_PLAN.md`
+- `Docs/FH_IMPLEMENTATION_GUIDE.md`
 
 ## Product Direction
 
