@@ -16,6 +16,8 @@ type OpenAIChatCompletionRequest = {
     provider_policy?: "same_provider_first" | "mixed_quality" | "manual";
     permission_profile?: PermissionProfile;
     analysis_models?: string[];
+    judge_model?: string;
+    final_model?: string;
     timeout_ms?: number;
   };
 };
@@ -48,6 +50,8 @@ export const openAiRoutes = new Hono<AppBindings>()
       permissionProfile: fusion.permission_profile ?? "readonly",
       providerPolicy: fusion.provider_policy ?? "same_provider_first",
       analysisModels: fusion.analysis_models,
+      judgeModel: fusion.judge_model,
+      finalModel: fusion.final_model,
       stream: body.stream,
       timeoutMs: fusion.timeout_ms,
     });

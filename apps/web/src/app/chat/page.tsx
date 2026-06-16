@@ -1,11 +1,21 @@
-import { PageHeader } from "@/components/product-ui";
+import type { ModelRef, RunnerRef } from "@fusion-harness/shared";
+import { apiGet } from "@/lib/api";
 import { TaskConsole } from "./task-console";
 
-export default function ChatPage() {
-  return (
-    <div className="flex flex-col gap-6 p-6">
-      <PageHeader title="Task Console" description="Create direct or fused runs with explicit model policy and permission profile." />
-      <TaskConsole />
-    </div>
-  );
+export const dynamic = "force-dynamic";
+
+type ModelResponse = {
+  aliases: Array<{ id: string; owned_by: string }>;
+  data: ModelRef[];
+};
+
+type RunnerResponse = { data: RunnerRef[] };
+
+export default async function ChatPage() {
+  const [models, runners] = await Promise.all([
+    apiGet<ModelResponse>("/api/models", { aliases: [], data: [] }),
+    apiGet<RunnerResponse>("/api/runners", { data: [] }),
+  ]);
+
+  return <TaskConsole models={models.data.data} runners={runners.data.data} />;
 }

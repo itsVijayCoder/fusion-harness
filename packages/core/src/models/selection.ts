@@ -4,6 +4,8 @@ export type ModelSelectionInput = {
   availableModels: ModelRef[];
   preset: string;
   requestedModels?: string[];
+  requestedJudgeModel?: string;
+  requestedFinalModel?: string;
   providerPolicy?: FusionProviderPolicy;
   maxPanelModels: number;
 };
@@ -18,9 +20,17 @@ export function selectFusionModels(input: ModelSelectionInput): SelectedFusionMo
   const preset = resolvePreset(input.preset);
   const maxPanelModels = Math.max(1, Math.min(input.maxPanelModels || preset.maxPanelModels, preset.maxPanelModels));
   const availableModels = filterByPreset(input.availableModels, preset.adapters);
+  const fallbackAdapter = preset.adapters?.[0];
+  const buildSelectionWithOverrides = (panelModels: ModelRef[]) =>
+    buildSelection(panelModels, maxPanelModels, {
+      availableModels: input.availableModels,
+      requestedJudgeModel: input.requestedJudgeModel,
+      requestedFinalModel: input.requestedFinalModel,
+      fallbackAdapter,
+    });
 
   if (input.requestedModels?.length) {
-    return buildSelection(selectManual(availableModels, input.requestedModels), maxPanelModels);
+    return buildSelectionWithOverrides(selectManual(availableModels, input.requestedModels, fallbackAdapter));
   }
 
   const usableModels = availableModels.filter(isUsable);
@@ -29,28 +39,24 @@ export function selectFusionModels(input: ModelSelectionInput): SelectedFusionMo
   if (providerPolicy === "same_provider_first") {
     const sameProvider = pickBestProviderGroup(usableModels, maxPanelModels);
     if (sameProvider.length >= 2) {
-      return buildSelection(sameProvider, maxPanelModels);
+      return buildSelectionWithOverrides(sameProvider);
     }
   }
 
-  return buildSelection(selectMixedQuality(usableModels, maxPanelModels), maxPanelModels);
+  return buildSelectionWithOverrides(selectMixedQuality(usableModels, maxPanelModels));
 }
 
 function isUsable(model: ModelRef) {
   return model.availability !== "unavailable" && model.authMode !== "unknown";
 }
 
-function selectManual(models: ModelRef[], requestedModels: string[]) {
-  return requestedModels.flatMap((requestedModel) => {
-    const match = models.find(
-      (model) =>
-        model.id === requestedModel ||
-        model.model === requestedModel ||
-        `${model.adapter}/${model.model}` === requestedModel ||
-        `${model.provider}/${model.model}` === requestedModel,
-    );
-    return match && isUsable(match) ? [match] : [];
-  });
+function selectManual(models: ModelRef[], requestedModels: string[], fallbackAdapter?: AdapterId) {
+  return dedupeModels(
+    requestedModels.flatMap((requestedModel) => {
+      const match = resolveRequestedModel(models, requestedModel, fallbackAdapter);
+      return match && isUsable(match) ? [match] : [];
+    }),
+  );
 }
 
 function pickBestProviderGroup(models: ModelRef[], limit: number) {
@@ -70,10 +76,26 @@ function selectMixedQuality(models: ModelRef[], limit: number) {
   return [...models].sort((a, b) => scoreModel(b) - scoreModel(a)).slice(0, limit);
 }
 
-function buildSelection(models: ModelRef[], limit: number): SelectedFusionModels {
+function buildSelection(
+  models: ModelRef[],
+  limit: number,
+  overrides: {
+    availableModels: ModelRef[];
+    requestedJudgeModel?: string;
+    requestedFinalModel?: string;
+    fallbackAdapter?: AdapterId;
+  },
+): SelectedFusionModels {
   const panel = models.slice(0, Math.max(1, limit));
-  const judge = pickJudge(panel);
-  const final = pickFinal(panel);
+  const fallbackAdapter = overrides.fallbackAdapter ?? panel[0]?.adapter;
+  const requestedJudge = overrides.requestedJudgeModel
+    ? resolveRequestedModel(overrides.availableModels, overrides.requestedJudgeModel, fallbackAdapter)
+    : undefined;
+  const requestedFinal = overrides.requestedFinalModel
+    ? resolveRequestedModel(overrides.availableModels, overrides.requestedFinalModel, fallbackAdapter)
+    : undefined;
+  const judge = requestedJudge && isUsable(requestedJudge) ? requestedJudge : pickJudge(panel);
+  const final = requestedFinal && isUsable(requestedFinal) ? requestedFinal : pickFinal(panel);
 
   return {
     panel,
@@ -112,6 +134,66 @@ function filterByPreset(models: ModelRef[], adapters?: AdapterId[]) {
   if (!adapters?.length) return models;
   const allowed = new Set(adapters);
   return models.filter((model) => allowed.has(model.adapter));
+}
+
+function resolveRequestedModel(models: ModelRef[], requestedModel: string, fallbackAdapter?: AdapterId): ModelRef | undefined {
+  const normalized = requestedModel.trim();
+  if (!normalized) return undefined;
+
+  const match = models.find(
+    (model) =>
+      model.id === normalized ||
+      model.model === normalized ||
+      `${model.adapter}/${model.model}` === normalized ||
+      (model.provider ? `${model.provider}/${model.model}` === normalized : false),
+  );
+
+  if (match) return match;
+  return synthesizeModel(normalized, fallbackAdapter);
+}
+
+function synthesizeModel(requestedModel: string, fallbackAdapter?: AdapterId): ModelRef {
+  const [firstSegment, ...rest] = requestedModel.split("/");
+  const knownAdapter = isAdapterId(firstSegment) ? firstSegment : undefined;
+  const adapter = knownAdapter ?? fallbackAdapter ?? (requestedModel.includes("/") ? "opencode" : "codex");
+  const model = knownAdapter ? rest.join("/") : requestedModel;
+
+  return {
+    id: `${adapter}/${model}`,
+    adapter,
+    provider: inferProvider(adapter, model),
+    model,
+    displayName: model,
+    authMode: adapter === "cloudflare-ai-gateway" ? "cloud_gateway" : adapter === "api-key" ? "api_key" : "cli_session",
+    availability: "configured_unverified",
+    capabilities: {
+      streaming: true,
+      tools: adapter !== "api-key",
+      fileEdits: adapter === "opencode" || adapter === "codex",
+      shell: adapter === "opencode" || adapter === "codex",
+      jsonOutput: true,
+      modelListing: false,
+    },
+  };
+}
+
+function inferProvider(adapter: AdapterId, model: string) {
+  if (adapter === "codex") return "openai";
+  const [provider] = model.split("/");
+  return provider && provider !== model ? provider : adapter;
+}
+
+function isAdapterId(value: string): value is AdapterId {
+  return value === "opencode" || value === "codex" || value === "api-key" || value === "cloudflare-ai-gateway";
+}
+
+function dedupeModels(models: ModelRef[]) {
+  const seen = new Set<string>();
+  return models.filter((model) => {
+    if (seen.has(model.id)) return false;
+    seen.add(model.id);
+    return true;
+  });
 }
 
 function resolvePreset(preset: string): { maxPanelModels: number; providerPolicy: FusionProviderPolicy; adapters?: AdapterId[] } {

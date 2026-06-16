@@ -41,6 +41,8 @@ export function planFusionRun(request: FusionRunRequest, availableModels: ModelR
     availableModels,
     preset: request.preset ?? "same-provider-first",
     requestedModels: request.analysisModels,
+    requestedJudgeModel: request.judgeModel,
+    requestedFinalModel: request.finalModel,
     providerPolicy: request.providerPolicy ?? "same_provider_first",
     maxPanelModels: request.mode === "direct" ? 1 : 4,
   });
