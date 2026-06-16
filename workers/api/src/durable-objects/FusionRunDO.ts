@@ -1,6 +1,11 @@
+import type { RunnerEvent } from "@fusion-harness/shared";
 import type { Env } from "../env";
 
+const eventCountKey = "event_count";
+
 export class FusionRunDO {
+  private readonly sockets = new Set<WebSocket>();
+
   constructor(
     private readonly state: DurableObjectState,
     private readonly env: Env,
@@ -10,21 +15,87 @@ export class FusionRunDO {
     const url = new URL(request.url);
 
     if (url.pathname.endsWith("/events")) {
-      return Response.json({ status: "events_not_started", sockets: 0 });
+      if (request.headers.get("upgrade") === "websocket") {
+        return this.handleWebSocket();
+      }
+
+      return Response.json({ data: await this.readEvents(), environment: this.env.ENVIRONMENT });
     }
 
     if (url.pathname.endsWith("/start")) {
       const payload = await request.json().catch(() => ({}));
-      await this.state.storage.put("last_start_payload", payload);
+      await this.state.storage.put("start_payload", payload);
+      await this.appendEvent({
+        type: "run.created",
+        runId: readString(payload, "runId"),
+        timestamp: new Date().toISOString(),
+        data: {
+          promptObjectKey: readString(payload, "promptObjectKey"),
+        },
+      });
       return Response.json({ status: "started" }, { status: 202 });
     }
 
     if (url.pathname.endsWith("/runner-event")) {
-      const event = await request.json().catch(() => ({}));
-      await this.state.storage.put(`event:${Date.now()}`, event);
+      const event = (await request.json().catch(() => null)) as RunnerEvent | null;
+      if (!event?.type || !event.runId) {
+        return Response.json({ error: "Invalid runner event" }, { status: 400 });
+      }
+
+      await this.appendEvent({
+        ...event,
+        timestamp: event.timestamp || new Date().toISOString(),
+        data: event.data ?? {},
+      });
       return Response.json({ status: "accepted" }, { status: 202 });
     }
 
     return Response.json({ error: "Not found", environment: this.env.ENVIRONMENT }, { status: 404 });
   }
+
+  private async handleWebSocket() {
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
+
+    server.accept();
+    this.sockets.add(server);
+    server.addEventListener("close", () => this.sockets.delete(server));
+    server.addEventListener("error", () => this.sockets.delete(server));
+    server.send(JSON.stringify({ type: "snapshot", data: await this.readEvents() }));
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+    });
+  }
+
+  private async appendEvent(event: RunnerEvent) {
+    const nextIndex = ((await this.state.storage.get<number>(eventCountKey)) ?? 0) + 1;
+    await this.state.storage.put(`event:${String(nextIndex).padStart(8, "0")}`, event);
+    await this.state.storage.put(eventCountKey, nextIndex);
+    this.broadcast(event);
+  }
+
+  private async readEvents() {
+    const entries = await this.state.storage.list<RunnerEvent>({ prefix: "event:" });
+    return [...entries.values()];
+  }
+
+  private broadcast(event: RunnerEvent) {
+    const message = JSON.stringify(event);
+
+    for (const socket of this.sockets) {
+      try {
+        socket.send(message);
+      } catch {
+        this.sockets.delete(socket);
+      }
+    }
+  }
+}
+
+function readString(value: unknown, key: string) {
+  if (!value || typeof value !== "object" || !(key in value)) return "";
+  const candidate = (value as Record<string, unknown>)[key];
+  return typeof candidate === "string" ? candidate : "";
 }
