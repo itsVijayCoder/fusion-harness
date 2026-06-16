@@ -1,4 +1,4 @@
-import type { AdapterId, FusionProviderPolicy, ModelRef } from "@fusion-harness/shared";
+import { sanitizeCustomModelId, type AdapterId, type FusionProviderPolicy, type ModelRef } from "@fusion-harness/shared";
 
 export type ModelSelectionInput = {
   availableModels: ModelRef[];
@@ -137,7 +137,7 @@ function filterByPreset(models: ModelRef[], adapters?: AdapterId[]) {
 }
 
 function resolveRequestedModel(models: ModelRef[], requestedModel: string, fallbackAdapter?: AdapterId): ModelRef | undefined {
-  const normalized = requestedModel.trim();
+  const normalized = sanitizeCustomModelId(requestedModel);
   if (!normalized) return undefined;
 
   const match = models.find(

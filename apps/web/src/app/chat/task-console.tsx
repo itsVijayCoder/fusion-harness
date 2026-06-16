@@ -16,7 +16,7 @@ import {
   RiSparklingLine,
   RiStackLine,
 } from "@remixicon/react";
-import type { AdapterId, FusionRunSummary, ModelRef, PermissionProfile, RunnerRef } from "@fusion-harness/shared";
+import { sanitizeCustomModelId, type AdapterId, type FusionRunSummary, type ModelRef, type PermissionProfile, type RunnerRef } from "@fusion-harness/shared";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useMemo, useState, useTransition } from "react";
@@ -80,9 +80,17 @@ export function TaskConsole({ models, runners }: TaskConsoleProps) {
   }
 
   function addCustomOption(adapter: AdapterId, model: string) {
-    const option = customModel(adapter, model);
+    const sanitizedModel = sanitizeCustomModelId(model);
+    if (!sanitizedModel) {
+      setError("Model ID can only use letters, numbers, '.', '_', '/', ':', '@', or '-'");
+      return false;
+    }
+
+    const option = customModel(adapter, sanitizedModel);
     setCustomOptions((current) => (current.some((item) => item.id === option.id) ? current : [...current, option]));
     selectModel(option.id, pickerTarget);
+    setError(undefined);
+    return true;
   }
 
   function selectModel(modelId: string, target: PickerTarget) {
@@ -271,12 +279,13 @@ function ModelPicker({
   target: PickerTarget;
   onClose: () => void;
   onSelect: (modelId: string) => void;
-  onAddCustom: (adapter: AdapterId, model: string) => void;
+  onAddCustom: (adapter: AdapterId, model: string) => boolean;
 }) {
   const [query, setQuery] = useState("");
   const [adapterFilter, setAdapterFilter] = useState<AdapterId | "all">("all");
   const [customAdapter, setCustomAdapter] = useState<AdapterId>("opencode");
   const [customModel, setCustomModel] = useState("");
+  const [customError, setCustomError] = useState<string>();
   const filteredOptions = options.filter((option) => {
     const matchesAdapter = adapterFilter === "all" || option.adapter === adapterFilter;
     const haystack = `${option.displayName ?? ""} ${option.model} ${option.provider ?? ""} ${option.adapter}`.toLowerCase();
@@ -285,9 +294,15 @@ function ModelPicker({
   const activeOption = filteredOptions.find((option) => selectedIds.includes(option.id)) ?? filteredOptions[0];
 
   function submitCustom() {
-    if (!customModel.trim()) return;
-    onAddCustom(customAdapter, customModel.trim());
-    setCustomModel("");
+    const sanitizedModel = sanitizeCustomModelId(customModel);
+    if (!sanitizedModel) {
+      setCustomError("Use letters, numbers, '.', '_', '/', ':', '@', or '-'");
+      return;
+    }
+    if (onAddCustom(customAdapter, sanitizedModel)) {
+      setCustomModel("");
+      setCustomError(undefined);
+    }
   }
 
   return (
@@ -356,17 +371,25 @@ function ModelPicker({
             </select>
             <input
               value={customModel}
-              onChange={(event) => setCustomModel(event.target.value)}
+              onChange={(event) => {
+                setCustomModel(event.target.value);
+                setCustomError(undefined);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") submitCustom();
               }}
-              className="h-9 min-w-0 flex-1 rounded-md border border-white/15 bg-[#111214] px-3 text-sm outline-none placeholder:text-zinc-600"
+              className={cn(
+                "h-9 min-w-0 flex-1 rounded-md border bg-[#111214] px-3 text-sm outline-none placeholder:text-zinc-600",
+                customError ? "border-red-400/70" : "border-white/15",
+              )}
               placeholder="provider/model or model-id"
+              aria-invalid={Boolean(customError)}
             />
             <button type="button" onClick={submitCustom} className="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-white/20 px-3 text-xs font-semibold text-zinc-300 hover:bg-white/10">
               <RiAddLine aria-hidden className="size-3.5" />
               Add
             </button>
+            {customError ? <span className="basis-full text-xs font-medium text-red-300">{customError}</span> : null}
           </div>
         </div>
 
@@ -503,6 +526,7 @@ function suggestedModel(adapter: AdapterId, model: string, displayName: string, 
     displayName,
     authMode: adapter === "cloudflare-ai-gateway" ? "cloud_gateway" : adapter === "api-key" ? "api_key" : "cli_session",
     availability: "configured_unverified",
+    source: "suggested",
     optionSource: "suggested",
     capabilities: {
       streaming: true,
@@ -519,6 +543,7 @@ function customModel(adapter: AdapterId, model: string): ModelOption {
   const provider = adapter === "codex" ? "openai" : model.includes("/") ? model.split("/")[0] : adapter;
   return {
     ...suggestedModel(adapter, model, model, provider),
+    source: "custom",
     optionSource: "custom",
   };
 }

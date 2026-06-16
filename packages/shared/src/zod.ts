@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeCustomModelId } from "./models";
 
 export const adapterIdSchema = z.enum(["opencode", "codex", "api-key", "cloudflare-ai-gateway"]);
 export const authModeSchema = z.enum(["cli_session", "api_key", "cloud_gateway", "unknown"]);
@@ -50,6 +51,18 @@ export const modelRefSchema = z.object({
   capabilities: modelCapabilitiesSchema,
 });
 
+export const requestedModelIdSchema = z.string().transform((value, ctx) => {
+  const sanitized = sanitizeCustomModelId(value);
+  if (!sanitized) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Model ID must be 1-200 characters and use only letters, numbers, '.', '_', '/', ':', '@', or '-'",
+    });
+    return z.NEVER;
+  }
+  return sanitized;
+});
+
 export const toolRefSchema = z.object({
   id: z.string().optional(),
   tool: toolKindSchema,
@@ -86,9 +99,9 @@ export const fusionRunRequestSchema = z.object({
   messages: z.array(chatMessageSchema).min(1),
   permissionProfile: permissionProfileSchema,
   providerPolicy: providerPolicySchema.optional(),
-  analysisModels: z.array(z.string()).optional(),
-  judgeModel: z.string().optional(),
-  finalModel: z.string().optional(),
+  analysisModels: z.array(requestedModelIdSchema).optional(),
+  judgeModel: requestedModelIdSchema.optional(),
+  finalModel: requestedModelIdSchema.optional(),
   stream: z.boolean().optional(),
   timeoutMs: z.number().int().positive().optional(),
 });
