@@ -8,6 +8,7 @@ cloud_url="$default_cloud_url"
 token=""
 runner_id=""
 install_dir="${FUSION_RUNNER_INSTALL_DIR:-$HOME/.fusion-harness/bin}"
+symlink_dir="${FUSION_RUNNER_SYMLINK_DIR:-$HOME/.local/bin}"
 start_service=1
 allowed_roots=()
 
@@ -24,6 +25,7 @@ Options:
   --runner-id ID       Stable runner ID. Defaults to user + host.
   --allowed-root DIR   Workspace root the runner may use. Repeatable.
   --install-dir DIR    Binary install directory. Defaults to ~/.fusion-harness/bin.
+  --symlink-dir DIR    Directory for fusion-runner symlink. Defaults to ~/.local/bin.
   --no-start           Install files without starting the LaunchAgent.
   -h, --help           Show this help.
 USAGE
@@ -49,6 +51,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --install-dir)
       install_dir="${2:-}"
+      shift 2
+      ;;
+    --symlink-dir)
+      symlink_dir="${2:-}"
       shift 2
       ;;
     --no-start)
@@ -92,7 +98,7 @@ if [[ -z "$runner_id" ]]; then
   runner_id="$(printf '%s' "$runner_id" | tr -cs 'A-Za-z0-9_-' '_' | sed 's/_$//')"
 fi
 
-mkdir -p "$install_dir" "$config_dir" "$log_dir" "$plist_dir"
+mkdir -p "$install_dir" "$symlink_dir" "$config_dir" "$log_dir" "$plist_dir"
 
 if command -v go >/dev/null 2>&1; then
   echo "Building Fusion Runner..."
@@ -109,6 +115,7 @@ ERROR
 fi
 
 chmod 0755 "$binary_path"
+ln -sf "$binary_path" "$symlink_dir/fusion-runner"
 
 login_args=(login --cloud-url "$cloud_url")
 if [[ -n "$token" ]]; then
@@ -196,6 +203,7 @@ cat <<SUMMARY
 Fusion Runner installed.
 
 Binary:  $binary_path
+Command: $symlink_dir/fusion-runner
 Config:  $config_dir/config.json
 Service: $plist_path
 Logs:    $log_dir/runner.out.log

@@ -47,6 +47,7 @@ rm -f "$plist_path"
 
 if [[ "$remove_all" -eq 1 ]]; then
   rm -f "$HOME/.fusion-harness/bin/fusion-runner"
+  rm -f "$HOME/.local/bin/fusion-runner"
   rm -f "$HOME/.fusion-harness/logs/runner.out.log" "$HOME/.fusion-harness/logs/runner.err.log"
 fi
 

@@ -26,6 +26,7 @@
    },
    "upload_source_maps": true,
    "vars": {
-      "NEXT_PUBLIC_API_BASE_URL": "https://fusion-api.asthrix.workers.dev"
+      "NEXT_PUBLIC_API_BASE_URL": "https://fusion-api.asthrix.workers.dev",
+      "FUSION_API_BASE_URL": "https://fusion-api.asthrix.workers.dev"
    }
 }

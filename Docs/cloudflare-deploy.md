@@ -37,7 +37,9 @@ npm run deploy:cloudflare
 
 `npm run deploy:cloudflare` runs typechecking, applies remote D1 migrations,
 deploys the API Worker, deploys the MCP Worker, then deploys the OpenNext web
-Worker. `npm run deploy` is an alias for the same production path.
+Worker. `npm run deploy` is an alias for the same production path. The web
+deploy script forces the production API URL so a local `.env.local` cannot be
+accidentally baked into the deployed OpenNext bundle.
 
 For local D1 migrations used by `wrangler dev`:
 

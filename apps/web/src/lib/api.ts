@@ -4,11 +4,25 @@ export type ApiResult<T> = {
   error?: string;
 };
 
-const defaultApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8787";
+const localApiBaseUrl = "http://localhost:8787";
+const productionApiBaseUrl = "https://fusion-api.asthrix.workers.dev";
 
 export function apiUrl(path: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || defaultApiBaseUrl;
+  const baseUrl = apiBaseUrl();
   return `${baseUrl.replace(/\/$/, "")}${path}`;
+}
+
+export function apiBaseUrl() {
+  const configured = process.env.FUSION_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (!isLocalHost(hostname) && (!configured || isLocalApiBaseUrl(configured))) {
+      return productionApiBaseUrl;
+    }
+  }
+
+  return configured || localApiBaseUrl;
 }
 
 export async function apiGet<T>(path: string, fallback: T): Promise<ApiResult<T>> {
@@ -61,4 +75,17 @@ function readErrorMessage(value: unknown) {
   if (!value || typeof value !== "object" || !("error" in value)) return undefined;
   const error = (value as { error: unknown }).error;
   return typeof error === "string" ? error : undefined;
+}
+
+function isLocalHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function isLocalApiBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return isLocalHost(url.hostname);
+  } catch {
+    return false;
+  }
 }

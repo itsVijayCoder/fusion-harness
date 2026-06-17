@@ -10,7 +10,7 @@ For the current source checkout, install the runner as a macOS LaunchAgent:
 npm run runner:install:macos -- --cloud-url https://fusion-api.asthrix.workers.dev
 ```
 
-The installer builds `fusion-runner`, installs it at `~/.fusion-harness/bin/fusion-runner`, writes `~/.fusion-harness/config.json`, and registers `~/Library/LaunchAgents/com.asthrix.fusion-runner.plist`.
+The installer builds `fusion-runner`, installs it at `~/.fusion-harness/bin/fusion-runner`, creates a `~/.local/bin/fusion-runner` symlink, writes `~/.fusion-harness/config.json`, and registers `~/Library/LaunchAgents/com.asthrix.fusion-runner.plist`.
 
 After that, the user does not need to run `fusion-runner serve` manually. macOS starts the runner on login and restarts it if it exits.
 
