@@ -10,6 +10,7 @@ export type EntityPrefix =
   | "panel"
   | "artifact"
   | "approval"
+  | "event"
   | "audit";
 
 export function formatEntityId(prefix: EntityPrefix, id: string) {

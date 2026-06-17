@@ -1,4 +1,4 @@
-import type { RunnerEvent } from "@fusion-harness/shared";
+import type { RunEvent, RunnerEvent } from "@fusion-harness/shared";
 import type { Env } from "../env";
 
 const eventCountKey = "event_count";
@@ -25,7 +25,7 @@ export class FusionRunDO {
     if (url.pathname.endsWith("/start")) {
       const payload = await request.json().catch(() => ({}));
       await this.state.storage.put("start_payload", payload);
-      await this.appendEvent({
+      const event = await this.appendEvent({
         type: "run.created",
         runId: readString(payload, "runId"),
         timestamp: new Date().toISOString(),
@@ -33,7 +33,7 @@ export class FusionRunDO {
           promptObjectKey: readString(payload, "promptObjectKey"),
         },
       });
-      return Response.json({ status: "started" }, { status: 202 });
+      return Response.json({ status: "started", event }, { status: 202 });
     }
 
     if (url.pathname.endsWith("/runner-event")) {
@@ -42,12 +42,12 @@ export class FusionRunDO {
         return Response.json({ error: "Invalid runner event" }, { status: 400 });
       }
 
-      await this.appendEvent({
+      const sequencedEvent = await this.appendEvent({
         ...event,
         timestamp: event.timestamp || new Date().toISOString(),
         data: event.data ?? {},
       });
-      return Response.json({ status: "accepted" }, { status: 202 });
+      return Response.json({ status: "accepted", event: sequencedEvent }, { status: 202 });
     }
 
     return Response.json({ error: "Not found", environment: this.env.ENVIRONMENT }, { status: 404 });
@@ -69,19 +69,21 @@ export class FusionRunDO {
     });
   }
 
-  private async appendEvent(event: RunnerEvent) {
+  private async appendEvent(event: RunnerEvent): Promise<RunEvent> {
     const nextIndex = ((await this.state.storage.get<number>(eventCountKey)) ?? 0) + 1;
-    await this.state.storage.put(`event:${String(nextIndex).padStart(8, "0")}`, event);
+    const sequencedEvent = { ...event, seq: nextIndex };
+    await this.state.storage.put(`event:${String(nextIndex).padStart(8, "0")}`, sequencedEvent);
     await this.state.storage.put(eventCountKey, nextIndex);
-    this.broadcast(event);
+    this.broadcast(sequencedEvent);
+    return sequencedEvent;
   }
 
   private async readEvents() {
-    const entries = await this.state.storage.list<RunnerEvent>({ prefix: "event:" });
+    const entries = await this.state.storage.list<RunEvent>({ prefix: "event:" });
     return [...entries.values()];
   }
 
-  private broadcast(event: RunnerEvent) {
+  private broadcast(event: RunEvent) {
     const message = JSON.stringify(event);
 
     for (const socket of this.sockets) {

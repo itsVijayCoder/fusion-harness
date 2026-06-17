@@ -7,6 +7,7 @@ import type {
   AuthMode,
   DashboardSnapshot,
   FusionMode,
+  FusionExecutionPlan,
   FusionRunDetail,
   FusionRunSummary,
   ModelAvailability,
@@ -15,8 +16,12 @@ import type {
   PanelOutputRef,
   PanelOutputStatus,
   PermissionProfile,
+  RunEvent,
   RunnerRef,
   RunnerRegistrationRequest,
+  RunnerJob,
+  RunnerJobKind,
+  RunnerJobStatus,
   RunnerStatus,
   ToolKind,
   ToolRef,
@@ -48,6 +53,7 @@ export type CreateFusionRunInput = {
   preset?: string;
   permissionProfile: PermissionProfile;
   promptObjectKey?: string;
+  executionPlan?: FusionExecutionPlan;
   status?: FusionRunSummary["status"];
   createdAt: string;
 };
@@ -68,6 +74,48 @@ export type CreateArtifactInput = {
   contentType?: string;
   sizeBytes?: number;
   sha256?: string;
+  createdAt: string;
+};
+
+export type CreateRunnerJobInput = {
+  id: string;
+  orgId: string;
+  runId: string;
+  runnerId: string;
+  kind: RunnerJobKind;
+  inputObjectKey?: string;
+  createdAt: string;
+};
+
+export type MarkRunnerJobLeasedInput = {
+  orgId: string;
+  runnerId: string;
+  jobId: string;
+  attempt: number;
+  leaseOwner: string;
+  leaseExpiresAt: string;
+  now: string;
+};
+
+export type CompleteRunnerJobInput = {
+  orgId: string;
+  runnerId: string;
+  jobId: string;
+  status: Extract<RunnerJobStatus, "completed" | "failed" | "timeout" | "cancelled">;
+  outputObjectKey?: string;
+  error?: string;
+  completedAt: string;
+};
+
+export type CreateRunEventInput = {
+  id: string;
+  orgId: string;
+  runId: string;
+  seq: number;
+  type: RunEvent["type"];
+  jobId?: string;
+  runnerId?: string;
+  payload: RunEvent;
   createdAt: string;
 };
 
@@ -96,6 +144,7 @@ type FusionRunRow = {
   prompt_object_key: string | null;
   judge_object_key: string | null;
   final_object_key: string | null;
+  execution_plan_json: string | null;
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -169,6 +218,36 @@ type PanelOutputRow = {
   usage_json: string | null;
   created_at: string;
   completed_at: string | null;
+};
+
+type RunnerJobRow = {
+  id: string;
+  org_id: string;
+  run_id: string;
+  runner_id: string;
+  kind: RunnerJobKind;
+  status: RunnerJobStatus;
+  attempt: number;
+  lease_owner: string | null;
+  lease_expires_at: string | null;
+  input_object_key: string | null;
+  output_object_key: string | null;
+  error: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+type RunEventRow = {
+  id: string;
+  org_id: string;
+  run_id: string;
+  seq: number;
+  type: RunEvent["type"];
+  job_id: string | null;
+  runner_id: string | null;
+  payload_json: string;
+  created_at: string;
 };
 
 type ArtifactRow = {
@@ -261,9 +340,9 @@ export async function createFusionRun(db: D1DatabaseLike, input: CreateFusionRun
     .prepare(
       `INSERT INTO fusion_runs (
          id, org_id, workspace_id, user_id, runner_id, status, mode, preset,
-         permission_profile, prompt_object_key, created_at
+         permission_profile, prompt_object_key, execution_plan_json, created_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       input.id,
@@ -276,8 +355,16 @@ export async function createFusionRun(db: D1DatabaseLike, input: CreateFusionRun
       input.preset ?? null,
       input.permissionProfile,
       input.promptObjectKey ?? null,
+      input.executionPlan ? JSON.stringify(input.executionPlan) : null,
       input.createdAt,
     )
+    .run();
+}
+
+export async function updateFusionRunPlan(db: D1DatabaseLike, orgId: string, runId: string, plan: FusionExecutionPlan) {
+  return db
+    .prepare("UPDATE fusion_runs SET execution_plan_json = ? WHERE org_id = ? AND id = ?")
+    .bind(JSON.stringify(plan), orgId, runId)
     .run();
 }
 
@@ -388,6 +475,130 @@ export async function getRunner(db: D1DatabaseLike, orgId: string, runnerId: str
     .all<ToolRow>();
 
   return mapRunner(row, results);
+}
+
+export async function createRunnerJob(db: D1DatabaseLike, input: CreateRunnerJobInput): Promise<RunnerJob> {
+  await db
+    .prepare(
+      `INSERT INTO runner_jobs (
+         id, org_id, run_id, runner_id, kind, status, attempt, input_object_key, created_at
+       )
+       VALUES (?, ?, ?, ?, ?, 'queued', 0, ?, ?)`,
+    )
+    .bind(input.id, input.orgId, input.runId, input.runnerId, input.kind, input.inputObjectKey ?? null, input.createdAt)
+    .run();
+
+  const job = await getRunnerJob(db, input.orgId, input.runnerId, input.id);
+  if (!job) {
+    throw new Error("Runner job insert did not produce a readable job");
+  }
+  return job;
+}
+
+export async function getRunnerJob(
+  db: D1DatabaseLike,
+  orgId: string,
+  runnerId: string,
+  jobId: string,
+): Promise<RunnerJob | null> {
+  const row = await db
+    .prepare("SELECT * FROM runner_jobs WHERE org_id = ? AND runner_id = ? AND id = ?")
+    .bind(orgId, runnerId, jobId)
+    .first<RunnerJobRow>();
+  return row ? mapRunnerJob(row) : null;
+}
+
+export async function listRunnerJobsByRun(db: D1DatabaseLike, orgId: string, runId: string): Promise<RunnerJob[]> {
+  const { results } = await db
+    .prepare("SELECT * FROM runner_jobs WHERE org_id = ? AND run_id = ? ORDER BY created_at ASC")
+    .bind(orgId, runId)
+    .all<RunnerJobRow>();
+
+  return results.map(mapRunnerJob);
+}
+
+export async function markRunnerJobLeased(db: D1DatabaseLike, input: MarkRunnerJobLeasedInput): Promise<RunnerJob | null> {
+  await db
+    .prepare(
+      `UPDATE runner_jobs
+       SET status = 'leased',
+           attempt = ?,
+           lease_owner = ?,
+           lease_expires_at = ?,
+           started_at = COALESCE(started_at, ?)
+       WHERE org_id = ? AND runner_id = ? AND id = ? AND status IN ('queued', 'leased')`,
+    )
+    .bind(input.attempt, input.leaseOwner, input.leaseExpiresAt, input.now, input.orgId, input.runnerId, input.jobId)
+    .run();
+
+  return getRunnerJob(db, input.orgId, input.runnerId, input.jobId);
+}
+
+export async function completeRunnerJob(db: D1DatabaseLike, input: CompleteRunnerJobInput): Promise<RunnerJob | null> {
+  await db
+    .prepare(
+      `UPDATE runner_jobs
+       SET status = ?,
+           output_object_key = COALESCE(?, output_object_key),
+           error = COALESCE(?, error),
+           completed_at = ?
+       WHERE org_id = ? AND runner_id = ? AND id = ?`,
+    )
+    .bind(
+      input.status,
+      input.outputObjectKey ?? null,
+      input.error ?? null,
+      input.completedAt,
+      input.orgId,
+      input.runnerId,
+      input.jobId,
+    )
+    .run();
+
+  return getRunnerJob(db, input.orgId, input.runnerId, input.jobId);
+}
+
+export async function createRunEvent(db: D1DatabaseLike, input: CreateRunEventInput): Promise<RunEvent> {
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO run_events (
+         id, org_id, run_id, seq, type, job_id, runner_id, payload_json, created_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      input.id,
+      input.orgId,
+      input.runId,
+      input.seq,
+      input.type,
+      input.jobId ?? null,
+      input.runnerId ?? null,
+      JSON.stringify(input.payload),
+      input.createdAt,
+    )
+    .run();
+
+  return input.payload;
+}
+
+export async function listRunEvents(
+  db: D1DatabaseLike,
+  orgId: string,
+  runId: string,
+  options: { afterSeq?: number; limit?: number } = {},
+): Promise<RunEvent[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM run_events
+       WHERE org_id = ? AND run_id = ? AND seq > ?
+       ORDER BY seq ASC
+       LIMIT ?`,
+    )
+    .bind(orgId, runId, options.afterSeq ?? 0, options.limit ?? 500)
+    .all<RunEventRow>();
+
+  return results.map(mapRunEvent);
 }
 
 export async function listModels(db: D1DatabaseLike, orgId: string): Promise<ModelRef[]> {
@@ -654,10 +865,44 @@ function mapFusionRun(row: FusionRunRow): FusionRunSummary {
     promptObjectKey: optional(row.prompt_object_key),
     judgeObjectKey: optional(row.judge_object_key),
     finalObjectKey: optional(row.final_object_key),
+    executionPlan: parseJson<FusionExecutionPlan | undefined>(row.execution_plan_json, undefined),
     error: optional(row.error),
     createdAt: row.created_at,
     startedAt: optional(row.started_at),
     completedAt: optional(row.completed_at),
+  };
+}
+
+function mapRunnerJob(row: RunnerJobRow): RunnerJob {
+  return {
+    id: row.id,
+    orgId: row.org_id,
+    runId: row.run_id,
+    runnerId: row.runner_id,
+    kind: row.kind,
+    status: row.status,
+    attempt: row.attempt,
+    leaseOwner: optional(row.lease_owner),
+    leaseExpiresAt: optional(row.lease_expires_at),
+    inputObjectKey: optional(row.input_object_key),
+    outputObjectKey: optional(row.output_object_key),
+    error: optional(row.error),
+    createdAt: row.created_at,
+    startedAt: optional(row.started_at),
+    completedAt: optional(row.completed_at),
+  };
+}
+
+function mapRunEvent(row: RunEventRow): RunEvent {
+  const payload = parseJson<RunEvent | undefined>(row.payload_json, undefined);
+  return {
+    type: payload?.type ?? row.type,
+    runId: payload?.runId ?? row.run_id,
+    seq: row.seq,
+    jobId: payload?.jobId ?? optional(row.job_id),
+    runnerId: payload?.runnerId ?? optional(row.runner_id),
+    timestamp: payload?.timestamp ?? row.created_at,
+    data: payload?.data ?? {},
   };
 }
 

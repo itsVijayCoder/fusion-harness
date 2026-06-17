@@ -1,8 +1,31 @@
-import { createAuditEvent, ensurePrincipal, heartbeatRunner, listRunners, registerRunner } from "@fusion-harness/db";
-import { formatEntityId, runnerRegistrationRequestSchema } from "@fusion-harness/shared";
+import {
+  completeRunnerJob,
+  createAuditEvent,
+  createRunEvent,
+  ensurePrincipal,
+  getRunner,
+  getRunnerJob,
+  heartbeatRunner,
+  listRunners,
+  markRunnerJobLeased,
+  registerRunner,
+} from "@fusion-harness/db";
+import {
+  formatEntityId,
+  runnerEventSchema,
+  runnerJobCompletionSchema,
+  runnerRegistrationRequestSchema,
+  type ClaimedRunnerJob,
+  type RunEvent,
+  type RunnerEvent,
+  type RunnerJob,
+  type RunnerJobKind,
+  type RunnerJobStatus,
+} from "@fusion-harness/shared";
 import { Hono } from "hono";
-import type { AppBindings } from "../env";
+import type { AppBindings, Env } from "../env";
 import { requireAccessIdentity } from "../services/auth";
+import { notifyFusionRunObject } from "../services/runs";
 
 export const runnerRoutes = new Hono<AppBindings>()
   .get("/", async (c) => {
@@ -58,4 +81,202 @@ export const runnerRoutes = new Hono<AppBindings>()
     }
 
     return c.json(runner);
+  })
+  .post("/:id/jobs/claim", async (c) => {
+    const principal = requireAccessIdentity(c.req.raw.headers);
+    const runnerId = c.req.param("id");
+    const runner = await getRunner(c.env.DB, principal.orgId, runnerId);
+
+    if (!runner) {
+      return c.json({ error: "Runner not found" }, 404);
+    }
+
+    const requestBody = (await c.req.json().catch(() => ({}))) as { leaseOwner?: string; leaseSeconds?: number };
+    const claimResponse = await notifyRunnerSessionObject(c.env, runnerId, "/jobs/claim", {
+      leaseOwner: requestBody.leaseOwner ?? runnerId,
+      leaseSeconds: requestBody.leaseSeconds,
+    });
+    const claimBody = (await claimResponse.json().catch(() => ({ job: null }))) as { job: ClaimedRunnerJob | null };
+
+    if (!claimBody.job) {
+      return c.json({ job: null });
+    }
+
+    const now = new Date().toISOString();
+    const leasedJob = await markRunnerJobLeased(c.env.DB, {
+      orgId: principal.orgId,
+      runnerId,
+      jobId: claimBody.job.id,
+      attempt: claimBody.job.attempt,
+      leaseOwner: claimBody.job.leaseOwner ?? runnerId,
+      leaseExpiresAt: claimBody.job.leaseExpiresAt ?? now,
+      now,
+    });
+
+    if (!leasedJob) {
+      return c.json({ error: "Claimed job is missing from D1", jobId: claimBody.job.id }, 409);
+    }
+
+    return c.json({ job: { ...leasedJob, payload: claimBody.job.payload } satisfies ClaimedRunnerJob });
+  })
+  .post("/:id/jobs/:jobId/events", async (c) => {
+    const principal = requireAccessIdentity(c.req.raw.headers);
+    const runnerId = c.req.param("id");
+    const jobId = c.req.param("jobId");
+    const event = runnerEventSchema.parse(await c.req.json());
+    const normalizedEvent = {
+      ...event,
+      jobId: event.jobId ?? jobId,
+      runnerId: event.runnerId ?? runnerId,
+      timestamp: event.timestamp || new Date().toISOString(),
+      data: event.data ?? {},
+    };
+
+    const persisted = await appendRunEvent(c.env, principal.orgId, normalizedEvent);
+    return c.json({ status: "accepted", event: persisted }, 202);
+  })
+  .post("/:id/jobs/:jobId/complete", async (c) => {
+    const principal = requireAccessIdentity(c.req.raw.headers);
+    const runnerId = c.req.param("id");
+    const jobId = c.req.param("jobId");
+    const body = runnerJobCompletionSchema.parse(await c.req.json().catch(() => ({ status: "completed" })));
+    const status = body.status === "completed" ? "completed" : body.status;
+    const result = await finishRunnerJob(c.env, principal.orgId, runnerId, jobId, status, body);
+
+    if (!result.job) {
+      return c.json({ error: "Runner job not found" }, 404);
+    }
+
+    return c.json({ job: result.job, event: result.event }, 202);
+  })
+  .post("/:id/jobs/:jobId/fail", async (c) => {
+    const principal = requireAccessIdentity(c.req.raw.headers);
+    const runnerId = c.req.param("id");
+    const jobId = c.req.param("jobId");
+    const body = runnerJobCompletionSchema.parse(await c.req.json().catch(() => ({ status: "failed" })));
+    const status = body.status === "completed" ? "failed" : body.status;
+    const result = await finishRunnerJob(c.env, principal.orgId, runnerId, jobId, status, body);
+
+    if (!result.job) {
+      return c.json({ error: "Runner job not found" }, 404);
+    }
+
+    return c.json({ job: result.job, event: result.event }, 202);
   });
+
+async function finishRunnerJob(
+  env: Env,
+  orgId: string,
+  runnerId: string,
+  jobId: string,
+  status: Extract<RunnerJobStatus, "completed" | "failed" | "timeout" | "cancelled">,
+  body: {
+    outputObjectKey?: string;
+    outputText?: string;
+    error?: string;
+    latencyMs?: number;
+    usage?: Record<string, unknown>;
+    artifactKeys?: string[];
+  },
+): Promise<{ job: RunnerJob | null; event?: RunEvent }> {
+  const existingJob = await getRunnerJob(env.DB, orgId, runnerId, jobId);
+  if (!existingJob) {
+    return { job: null };
+  }
+
+  const now = new Date().toISOString();
+  const job = await completeRunnerJob(env.DB, {
+    orgId,
+    runnerId,
+    jobId,
+    status,
+    outputObjectKey: body.outputObjectKey,
+    error: body.error,
+    completedAt: now,
+  });
+
+  await notifyRunnerSessionObject(env, runnerId, `/jobs/${encodeURIComponent(jobId)}/${status === "completed" ? "complete" : "fail"}`, {
+    status,
+  });
+
+  const event = await appendRunEvent(env, orgId, {
+    type: completionEventType(existingJob.kind, status),
+    runId: existingJob.runId,
+    jobId,
+    runnerId,
+    timestamp: now,
+    data: {
+      status,
+      outputObjectKey: body.outputObjectKey,
+      outputText: body.outputText,
+      error: body.error,
+      latencyMs: body.latencyMs,
+      usage: body.usage,
+      artifactKeys: body.artifactKeys,
+    },
+  });
+
+  return { job, event };
+}
+
+async function appendRunEvent(env: Env, orgId: string, event: RunnerEvent) {
+  const response = await notifyFusionRunObject(env, event.runId, "/runner-event", event);
+  const body = (await response.json().catch(() => ({}))) as { event?: RunEvent };
+
+  if (!body.event) {
+    throw new Error("Fusion run durable object did not return a sequenced event");
+  }
+
+  await createRunEvent(env.DB, {
+    id: formatEntityId("event", crypto.randomUUID()),
+    orgId,
+    runId: body.event.runId,
+    seq: body.event.seq,
+    type: body.event.type,
+    jobId: body.event.jobId,
+    runnerId: body.event.runnerId,
+    payload: body.event,
+    createdAt: body.event.timestamp,
+  });
+
+  return body.event;
+}
+
+function completionEventType(
+  kind: RunnerJobKind,
+  status: Extract<RunnerJobStatus, "completed" | "failed" | "timeout" | "cancelled">,
+): RunEvent["type"] {
+  if (status !== "completed") {
+    if (kind === "judge") return "judge.failed";
+    if (kind === "final" || kind === "direct") return "run.failed";
+    return "panel.job.failed";
+  }
+
+  switch (kind) {
+    case "judge":
+      return "judge.completed";
+    case "final":
+    case "direct":
+      return "final.completed";
+    case "command":
+      return "command.completed";
+    default:
+      return "panel.job.completed";
+  }
+}
+
+function notifyRunnerSessionObject(env: Env, runnerId: string, path: string, body: unknown) {
+  const id = env.RUNNER_SESSION.idFromName(runnerId);
+  const stub = env.RUNNER_SESSION.get(id);
+  const url = new URL(`https://runner-session.internal${path}`);
+
+  return stub.fetch(
+    new Request(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }),
+  );
+}

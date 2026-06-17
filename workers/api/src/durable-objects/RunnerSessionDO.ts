@@ -1,11 +1,9 @@
 import type { Env } from "../env";
+import type { ClaimedRunnerJob } from "@fusion-harness/shared";
 
-type RunnerJob = {
-  id: string;
-  runId: string;
-  kind: "panel" | "judge" | "final" | "command";
-  payload: Record<string, unknown>;
-  createdAt: string;
+type ClaimRequest = {
+  leaseOwner?: string;
+  leaseSeconds?: number;
 };
 
 export class RunnerSessionDO {
@@ -26,8 +24,8 @@ export class RunnerSessionDO {
     }
 
     if (url.pathname.endsWith("/dispatch")) {
-      const job = (await request.json().catch(() => null)) as RunnerJob | null;
-      if (!job?.id || !job.runId) {
+      const job = (await request.json().catch(() => null)) as ClaimedRunnerJob | null;
+      if (!job?.id || !job.runId || !job.runnerId || !job.payload) {
         return Response.json({ error: "Invalid runner job" }, { status: 400 });
       }
 
@@ -35,9 +33,17 @@ export class RunnerSessionDO {
       return Response.json({ status: "queued", jobId: job.id }, { status: 202 });
     }
 
-    if (url.pathname.endsWith("/jobs/next")) {
-      const job = await this.dequeue();
+    if (url.pathname.endsWith("/jobs/claim")) {
+      const body = (await request.json().catch(() => ({}))) as ClaimRequest;
+      const job = await this.claim(body);
       return Response.json({ job });
+    }
+
+    const completionMatch = url.pathname.match(/\/jobs\/([^/]+)\/(complete|fail)$/);
+    if (completionMatch) {
+      const [, jobId, action] = completionMatch;
+      const job = await this.finish(jobId, action === "complete" ? "completed" : "failed");
+      return Response.json({ status: job ? "accepted" : "missing", jobId }, { status: job ? 202 : 404 });
     }
 
     if (url.pathname.endsWith("/state")) {
@@ -52,24 +58,83 @@ export class RunnerSessionDO {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  private async enqueue(job: RunnerJob) {
+  private async enqueue(job: ClaimedRunnerJob) {
     const nextIndex = ((await this.state.storage.get<number>("queue_count")) ?? 0) + 1;
-    await this.state.storage.put(`job:${String(nextIndex).padStart(8, "0")}`, job);
+    const key = `job:${String(nextIndex).padStart(8, "0")}`;
+    await this.state.storage.put(key, {
+      ...job,
+      status: "queued",
+      attempt: job.attempt ?? 0,
+      createdAt: job.createdAt || new Date().toISOString(),
+    });
+    await this.state.storage.put(jobIndexKey(job.id), key);
     await this.state.storage.put("queue_count", nextIndex);
   }
 
-  private async dequeue() {
-    const jobs = await this.state.storage.list<RunnerJob>({ prefix: "job:", limit: 1 });
-    const first = jobs.entries().next();
-    if (first.done) return null;
+  private async claim(request: ClaimRequest) {
+    const now = new Date();
+    const leaseSeconds = clampLeaseSeconds(request.leaseSeconds);
+    const leaseExpiresAt = new Date(now.getTime() + leaseSeconds * 1000).toISOString();
+    const leaseOwner = request.leaseOwner || `lease_${crypto.randomUUID()}`;
+    const jobs = await this.state.storage.list<ClaimedRunnerJob>({ prefix: "job:" });
 
-    const [key, job] = first.value;
+    for (const [key, job] of jobs) {
+      if (!isClaimable(job, now)) {
+        continue;
+      }
+
+      const claimed: ClaimedRunnerJob = {
+        ...job,
+        status: "leased",
+        attempt: (job.attempt ?? 0) + 1,
+        leaseOwner,
+        leaseExpiresAt,
+        payload: {
+          ...job.payload,
+          attempt: (job.attempt ?? 0) + 1,
+        },
+      };
+      await this.state.storage.put(key, claimed);
+      return claimed;
+    }
+
+    return null;
+  }
+
+  private async finish(jobId: string, status: "completed" | "failed") {
+    const key = await this.state.storage.get<string>(jobIndexKey(jobId));
+    if (!key) return null;
+
+    const job = await this.state.storage.get<ClaimedRunnerJob>(key);
+    if (!job) return null;
+
+    await this.state.storage.put(key, {
+      ...job,
+      status,
+      completedAt: new Date().toISOString(),
+    });
+    await this.state.storage.delete(jobIndexKey(jobId));
     await this.state.storage.delete(key);
     return job;
   }
 
   private async queueDepth() {
-    const jobs = await this.state.storage.list<RunnerJob>({ prefix: "job:" });
+    const jobs = await this.state.storage.list<ClaimedRunnerJob>({ prefix: "job:" });
     return jobs.size;
   }
+}
+
+function jobIndexKey(jobId: string) {
+  return `job_index:${jobId}`;
+}
+
+function clampLeaseSeconds(value: number | undefined) {
+  if (!value || Number.isNaN(value)) return 120;
+  return Math.min(Math.max(Math.trunc(value), 30), 900);
+}
+
+function isClaimable(job: ClaimedRunnerJob, now: Date) {
+  if (job.status === "queued") return true;
+  if (job.status !== "leased" || !job.leaseExpiresAt) return false;
+  return new Date(job.leaseExpiresAt).getTime() <= now.getTime();
 }
