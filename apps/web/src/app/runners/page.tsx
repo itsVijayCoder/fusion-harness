@@ -12,6 +12,7 @@ import { DataNotice, EmptyState, Section, StatusPill } from "@/components/produc
 import { apiGet } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { RunnerBootstrap } from "./runner-bootstrap";
 
 export const dynamic = "force-dynamic";
 
@@ -180,6 +181,8 @@ export default async function RunnersPage() {
         </header>
 
         <DataNotice source={runners.source === "fallback" || models.source === "fallback" ? "fallback" : "api"} error={runners.error ?? models.error} />
+
+        <RunnerBootstrap hasRunner={runners.data.data.length > 0} />
 
         <Section title="Detected">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
