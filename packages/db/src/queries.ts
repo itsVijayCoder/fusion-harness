@@ -514,7 +514,7 @@ export async function getRunner(db: D1DatabaseLike, orgId: string, runnerId: str
 export async function createRunnerJob(db: D1DatabaseLike, input: CreateRunnerJobInput): Promise<RunnerJob> {
   await db
     .prepare(
-      `INSERT INTO runner_jobs (
+      `INSERT OR IGNORE INTO runner_jobs (
          id, org_id, run_id, runner_id, kind, status, attempt, input_object_key, created_at
        )
        VALUES (?, ?, ?, ?, ?, 'queued', 0, ?, ?)`,

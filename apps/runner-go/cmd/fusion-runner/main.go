@@ -327,6 +327,7 @@ func executeCloudJob(ctx context.Context, client cloud.Client, cfg config.Config
 		TimeoutMs:         payload.TimeoutMs,
 	}
 	emit := func(event adapters.RunEvent) {
+		event.Type = eventTypeForKind(event.Type, payload.Kind)
 		if err := client.PostJobEvent(ctx, cfg.RunnerID, payload.JobID, cloudEventFromAdapter(event, cfg.RunnerID)); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to post job event %s: %v\n", event.Type, err)
 		}
@@ -439,6 +440,20 @@ func outputEventType(kind string) string {
 		return "judge.output.delta"
 	default:
 		return "panel.output.delta"
+	}
+}
+
+func eventTypeForKind(eventType string, kind string) string {
+	if eventType != "panel.job.started" {
+		return eventType
+	}
+	switch kind {
+	case "judge":
+		return "judge.started"
+	case "direct", "final":
+		return "final.started"
+	default:
+		return eventType
 	}
 }
 

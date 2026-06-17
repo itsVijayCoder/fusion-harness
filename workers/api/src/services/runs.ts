@@ -1,4 +1,4 @@
-import { buildPanelPrompt } from "@fusion-harness/core";
+import { buildFinalSynthesisPrompt, buildJudgePrompt, buildPanelPrompt, createEmptyJudgeResult, parseJudgeResult } from "@fusion-harness/core";
 import {
   createArtifact,
   createAuditEvent,
@@ -9,11 +9,14 @@ import {
   ensureModel,
   ensurePrincipal,
   getFusionRun,
+  listRunEvents,
+  listRunnerJobsByRun,
   listModels,
   listRunners,
   updateFusionRunStatus,
 } from "@fusion-harness/db";
 import {
+  extractReadableOutput,
   formatEntityId,
   type ClaimedRunnerJob,
   type FusionExecutionPlan,
@@ -23,6 +26,7 @@ import {
   type ModelRef,
   type RunEvent,
   type RunnerEvent,
+  type RunnerJob,
   type RunnerJobKind,
   type RunnerJobPayload,
   type RunnerRef,
@@ -87,7 +91,7 @@ export async function createRunFromRequest(env: Env, principal: AccessIdentity, 
     mode: payload.mode,
     steps: [
       ...plannedPanelSteps,
-      ...buildDeferredSteps(runId, payload, selection.judge, selection.final, plannedPanelSteps),
+      ...buildDeferredSteps(runId, payload, selection.judge, selection.final, plannedPanelSteps, runners),
     ],
     createdAt: now,
   };
@@ -221,6 +225,66 @@ export async function createRunFromRequest(env: Env, principal: AccessIdentity, 
   return { run, promptObjectKey };
 }
 
+export async function advanceFusionRunAfterJob(env: Env, orgId: string, completedJob: RunnerJob, now = new Date().toISOString()) {
+  const run = await getFusionRun(env.DB, orgId, completedJob.runId);
+  if (!run?.executionPlan) return;
+
+  if (completedJob.kind === "direct" || completedJob.kind === "final") {
+    const status = completedJob.status === "completed" ? "completed" : "failed";
+    await updateFusionRunStatus(env.DB, orgId, completedJob.runId, status, now, completedJob.error);
+    await appendRunEvent(env, orgId, {
+      type: status === "completed" ? "run.completed" : "run.failed",
+      runId: completedJob.runId,
+      jobId: completedJob.id,
+      runnerId: completedJob.runnerId,
+      timestamp: now,
+      data: {
+        status,
+        outputObjectKey: completedJob.outputObjectKey,
+        error: completedJob.error,
+      },
+    });
+    return;
+  }
+
+  const jobs = await listRunnerJobsByRun(env.DB, orgId, completedJob.runId);
+  const jobsById = new Map(jobs.map((job) => [job.id, job]));
+  const panelOutputs = await successfulPanelOutputs(env, orgId, completedJob.runId, run.executionPlan, jobs);
+  const panelsAreTerminal = plannedJobs(run.executionPlan, "panel").every((step) => isTerminal(jobsById.get(step.jobId)?.status));
+
+  if (panelsAreTerminal && panelOutputs.length === 0) {
+    await failRun(env, orgId, completedJob, now, "All panel jobs failed or returned empty output.");
+    return;
+  }
+
+  const nextStep = run.executionPlan.steps.find((step) => {
+    if (step.kind !== "judge" && step.kind !== "final") return false;
+    if (jobsById.has(step.jobId)) return false;
+    return (step.dependsOn ?? []).every((jobId) => isTerminal(jobsById.get(jobId)?.status));
+  });
+  if (!nextStep) return;
+
+  const request = await loadRunRequest(env, run.promptObjectKey);
+  const runnableRequest = request ?? requestFromRun(run);
+  const userPrompt = request ? renderMessages(request.messages) : "Original user request was unavailable. Use the provided panel evidence only.";
+  const prompt = await promptForDeferredStep(env, orgId, completedJob.runId, nextStep, userPrompt, panelOutputs, jobs);
+
+  await enqueueRunnerJob(env, orgId, runnableRequest, userPrompt, run.promptObjectKey ?? "", nextStep, now, prompt);
+  await appendRunEvent(env, orgId, {
+    type: nextStep.kind === "judge" ? "judge.started" : "final.started",
+    runId: completedJob.runId,
+    jobId: nextStep.jobId,
+    runnerId: nextStep.runnerId,
+    timestamp: now,
+    data: {
+      modelId: nextStep.modelId,
+      adapter: nextStep.adapter,
+      model: nextStep.model,
+      dependencies: nextStep.dependsOn ?? [],
+    },
+  });
+}
+
 async function enqueueRunnerJob(
   env: Env,
   orgId: string,
@@ -229,6 +293,7 @@ async function enqueueRunnerJob(
   promptObjectKey: string,
   step: FusionExecutionStep,
   now: string,
+  promptOverride?: string,
 ) {
   if (!step.runnerId || !step.modelId || !step.adapter || !step.model) {
     throw new Error(`Execution step ${step.id} is missing runner or model routing`);
@@ -261,7 +326,7 @@ async function enqueueRunnerJob(
     now,
   });
 
-  const jobPrompt = step.kind === "direct" ? userPrompt : buildPanelPrompt(userPrompt, step.role ?? "panel");
+  const jobPrompt = promptOverride ?? (step.kind === "direct" ? userPrompt : buildPanelPrompt(userPrompt, step.role ?? "panel"));
   const payload: RunnerJobPayload = {
     jobId: step.jobId,
     runId: step.id,
@@ -364,6 +429,7 @@ function buildDeferredSteps(
   judge: ModelRef | undefined,
   final: ModelRef | undefined,
   panelSteps: FusionExecutionStep[],
+  runners: RunnerRef[],
 ): FusionExecutionStep[] {
   if (request.mode === "direct") {
     return [];
@@ -371,29 +437,137 @@ function buildDeferredSteps(
 
   const steps: FusionExecutionStep[] = [];
   const panelJobIds = panelSteps.map((step) => step.jobId);
+  let judgeStep: FusionExecutionStep | undefined;
   if (judge) {
-    steps.push({
-      id: runId,
-      kind: "judge",
-      jobId: formatEntityId("job", crypto.randomUUID()),
-      modelId: judge.id,
-      adapter: judge.adapter,
-      model: judge.model,
+    judgeStep = {
+      ...buildExecutableStep({
+        runId,
+        kind: "judge",
+        model: judge,
+        runners,
+        role: "judge",
+      }),
       dependsOn: panelJobIds,
-    });
+    };
+    steps.push(judgeStep);
   }
   if (final) {
     steps.push({
-      id: runId,
-      kind: "final",
-      jobId: formatEntityId("job", crypto.randomUUID()),
-      modelId: final.id,
-      adapter: final.adapter,
-      model: final.model,
-      dependsOn: judge ? [steps[steps.length - 1].jobId] : panelJobIds,
+      ...buildExecutableStep({
+        runId,
+        kind: "final",
+        model: final,
+        runners,
+        role: "final",
+      }),
+      dependsOn: judgeStep ? [judgeStep.jobId] : panelJobIds,
     });
   }
   return steps;
+}
+
+async function promptForDeferredStep(
+  env: Env,
+  orgId: string,
+  runId: string,
+  step: FusionExecutionStep,
+  userPrompt: string,
+  panelOutputs: Array<{ model: string; output: string }>,
+  jobs: RunnerJob[],
+) {
+  if (step.kind === "judge") {
+    return buildJudgePrompt(userPrompt, panelOutputs);
+  }
+
+  const judgeJob = jobs.find((job) => job.kind === "judge");
+  const judgeOutput = judgeJob ? await outputForJob(env, orgId, runId, judgeJob) : "";
+  const judge =
+    judgeJob?.status === "completed" && judgeOutput.trim()
+      ? parseJudgeResult(judgeOutput)
+      : createEmptyJudgeResult("Judge analysis was unavailable or failed.");
+
+  return buildFinalSynthesisPrompt({
+    userPrompt,
+    judge,
+    panelOutputs,
+  });
+}
+
+async function successfulPanelOutputs(env: Env, orgId: string, runId: string, plan: FusionExecutionPlan, jobs: RunnerJob[]) {
+  const outputs: Array<{ model: string; output: string }> = [];
+  for (const job of jobs) {
+    if (job.kind !== "panel" || job.status !== "completed") continue;
+    const output = await outputForJob(env, orgId, runId, job);
+    if (output.trim()) {
+      const step = plan.steps.find((candidate) => candidate.jobId === job.id);
+      outputs.push({
+        model: step?.modelId ?? job.id,
+        output,
+      });
+    }
+  }
+  return outputs;
+}
+
+async function outputForJob(env: Env, orgId: string, runId: string, job: RunnerJob) {
+  const events = await listRunEvents(env.DB, orgId, runId, { limit: 1000 });
+  const completionEvent = [...events].reverse().find((event) => event.jobId === job.id && typeof event.data.outputText === "string");
+  if (typeof completionEvent?.data.outputText === "string") {
+    return extractReadableOutput(completionEvent.data.outputText);
+  }
+
+  if (job.outputObjectKey && env.ARTIFACTS) {
+    const object = await env.ARTIFACTS.get(job.outputObjectKey);
+    if (object) return extractReadableOutput(await object.text());
+  }
+
+  return "";
+}
+
+async function loadRunRequest(env: Env, promptObjectKey: string | undefined): Promise<FusionRunRequest | undefined> {
+  if (!promptObjectKey || !env.ARTIFACTS) return undefined;
+  const object = await env.ARTIFACTS.get(promptObjectKey);
+  if (!object) return undefined;
+
+  const body = parseJson<{ request?: FusionRunRequest }>(await object.text());
+  return body?.request;
+}
+
+function requestFromRun(run: { mode: FusionRunRequest["mode"]; preset?: string; permissionProfile: FusionRunRequest["permissionProfile"] }): FusionRunRequest {
+  return {
+    mode: run.mode,
+    preset: run.preset,
+    permissionProfile: run.permissionProfile,
+    messages: [{ role: "user", content: "Original user request was unavailable." }],
+  };
+}
+
+async function failRun(env: Env, orgId: string, job: RunnerJob, now: string, error: string) {
+  await updateFusionRunStatus(env.DB, orgId, job.runId, "failed", now, error);
+  await appendRunEvent(env, orgId, {
+    type: "run.failed",
+    runId: job.runId,
+    jobId: job.id,
+    runnerId: job.runnerId,
+    timestamp: now,
+    data: { error },
+  });
+}
+
+function plannedJobs(plan: FusionExecutionPlan, kind: RunnerJobKind) {
+  return plan.steps.filter((step) => step.kind === kind);
+}
+
+function isTerminal(status: RunnerJob["status"] | undefined) {
+  return status === "completed" || status === "failed" || status === "timeout" || status === "cancelled";
+}
+
+function parseJson<T>(value: string): T | undefined {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return undefined;
+  }
 }
 
 function resolveRunner(model: ModelRef, runners: RunnerRef[]) {

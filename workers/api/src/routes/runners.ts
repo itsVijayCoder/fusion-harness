@@ -30,7 +30,7 @@ import type { AppBindings, Env } from "../env";
 import { buildArtifactKey } from "../services/artifact-store";
 import { requireAccessIdentity } from "../services/auth";
 import { notifyRunnerSessionObject } from "../services/runner-session";
-import { notifyFusionRunObject } from "../services/runs";
+import { advanceFusionRunAfterJob, notifyFusionRunObject } from "../services/runs";
 
 export const runnerRoutes = new Hono<AppBindings>()
   .get("/", async (c) => {
@@ -238,6 +238,10 @@ async function finishRunnerJob(
       artifactKeys: body.artifactKeys,
     },
   });
+
+  if (job) {
+    await advanceFusionRunAfterJob(env, orgId, job, now);
+  }
 
   return { job, event };
 }
