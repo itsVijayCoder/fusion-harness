@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import type { AppBindings } from "../env";
 import { recordApproval } from "../services/approvals";
 import { requireAccessIdentity } from "../services/auth";
-import { createRunFromRequest, notifyFusionRunObject } from "../services/runs";
+import { createRunFromRequest, notifyFusionRunObject, RunCreationError } from "../services/runs";
 
 export const fusionRunRoutes = new Hono<AppBindings>()
   .get("/", async (c) => {
@@ -64,3 +64,10 @@ export const fusionRunRoutes = new Hono<AppBindings>()
 
     return c.json(await getFusionRunDetail(c.env.DB, principal.orgId, runId));
   });
+
+fusionRunRoutes.onError((error, c) => {
+  if (error instanceof RunCreationError) {
+    return c.json({ error: error.message }, error.statusCode);
+  }
+  throw error;
+});

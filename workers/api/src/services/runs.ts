@@ -39,6 +39,16 @@ type CreateRunResult = {
 
 const panelRoles = ["architect", "critic", "implementer", "risk-reviewer", "test-planner", "maintainer"];
 
+export class RunCreationError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: 400 | 409 | 422 = 409,
+  ) {
+    super(message);
+    this.name = "RunCreationError";
+  }
+}
+
 export async function createRunFromRequest(env: Env, principal: AccessIdentity, payload: FusionRunRequest): Promise<CreateRunResult> {
   const now = new Date().toISOString();
   const runId = formatEntityId("run", crypto.randomUUID());
@@ -67,7 +77,7 @@ export async function createRunFromRequest(env: Env, principal: AccessIdentity, 
   );
 
   if (plannedPanelSteps.length === 0) {
-    throw new Error("No runnable panel model was selected");
+    throw new RunCreationError("No runnable panel model was selected. Register a local runner or select a model advertised by an online runner.");
   }
 
   const plan: FusionExecutionPlan = {
@@ -298,7 +308,7 @@ function buildExecutableStep(input: {
 }): FusionExecutionStep {
   const runner = resolveRunner(input.model, input.runners);
   if (!runner) {
-    throw new Error(`No runner is available for ${input.model.id}`);
+    throw new RunCreationError(`No runner is available for ${input.model.id}. Start fusion-runner serve and refresh the model list.`);
   }
 
   const jobId = formatEntityId("job", crypto.randomUUID());
