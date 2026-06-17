@@ -35,8 +35,11 @@
     "deploy:cloudflare": "npm run typecheck && npm run api:migrate:remote && npm run api:deploy && npm run mcp:deploy && npm run web:deploy",
     "runner:build": "cd apps/runner-go && go build -o fusion-runner ./cmd/fusion-runner",
     "runner:install:macos": "scripts/install-runner-macos.sh",
+    "runner:install:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-runner-windows.ps1",
     "runner:uninstall:macos": "scripts/uninstall-runner-macos.sh",
+    "runner:uninstall:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-runner-windows.ps1",
     "runner:logs:macos": "tail -n 80 -f ~/.fusion-harness/logs/runner.out.log ~/.fusion-harness/logs/runner.err.log",
+    "runner:logs:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/show-runner-logs-windows.ps1",
     "runner:test": "cd apps/runner-go && go test ./..."
   },
   "devDependencies": {

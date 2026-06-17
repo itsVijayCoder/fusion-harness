@@ -9,15 +9,28 @@ type RunnerBootstrapProps = {
   hasRunner: boolean;
 };
 
+type CommandKind = "macos" | "windows" | "manual" | "dev";
+
 export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
-  const [copied, setCopied] = useState<"install" | "manual" | "dev" | undefined>();
+  const [copied, setCopied] = useState<CommandKind | undefined>();
   const cloudUrl = useMemo(() => apiUrl("").replace(/\/$/, ""), []);
-  const installCommand = `npm run runner:install:macos -- --cloud-url ${cloudUrl}`;
+  const preferredInstall = useMemo<"macos" | "windows">(() => {
+    if (typeof navigator === "undefined") return "macos";
+    return /windows|win32|win64/i.test(`${navigator.userAgent} ${navigator.platform}`) ? "windows" : "macos";
+  }, []);
+  const macosInstallCommand = `npm run runner:install:macos -- --cloud-url ${cloudUrl}`;
+  const windowsInstallCommand = `npm run runner:install:windows -- --cloud-url ${cloudUrl}`;
   const manualCommand = `fusion-runner serve --cloud-url ${cloudUrl}`;
   const devCommand = `cd apps/runner-go && go run ./cmd/fusion-runner serve --cloud-url ${cloudUrl}`;
 
-  async function copyCommand(kind: "install" | "manual" | "dev") {
-    const command = kind === "install" ? installCommand : kind === "manual" ? manualCommand : devCommand;
+  async function copyCommand(kind: CommandKind) {
+    const command = kind === "macos"
+      ? macosInstallCommand
+      : kind === "windows"
+        ? windowsInstallCommand
+        : kind === "manual"
+          ? manualCommand
+          : devCommand;
     await navigator.clipboard.writeText(command);
     setCopied(kind);
     window.setTimeout(() => setCopied(undefined), 1800);
@@ -37,17 +50,19 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
             </span>
             <div>
               <h2 className="text-sm font-semibold text-zinc-900">Local Runner</h2>
-              <p className="text-xs font-medium text-zinc-500">{hasRunner ? "Runner detected. macOS keeps it available in the background." : "Install once on the machine that has your agent CLIs."}</p>
+              <p className="text-xs font-medium text-zinc-500">
+                {hasRunner ? "Runner detected. The local service keeps it available in the background." : "Install once on the machine that has your agent CLIs."}
+              </p>
             </div>
           </div>
           <p className="mt-4 text-sm leading-6 text-zinc-600">
-            The one-time macOS installer builds the runner, writes its cloud URL, and registers a LaunchAgent so the runner starts on login and restarts automatically.
+            The one-time installer builds the runner, writes its cloud URL, and registers a background login task so the runner starts automatically.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" className="gap-2 rounded-md" onClick={() => copyCommand("install")}>
+          <Button type="button" size="sm" className="gap-2 rounded-md" onClick={() => copyCommand(preferredInstall)}>
             <RiClipboardLine aria-hidden className="size-4" />
-            {copied === "install" ? "Copied" : "Copy Install"}
+            {copied === preferredInstall ? "Copied" : "Copy Install"}
           </Button>
           <Button type="button" size="sm" variant="ghost" className="gap-2 rounded-md" onClick={refresh}>
             <RiRefreshLine aria-hidden className="size-4" />
@@ -55,8 +70,14 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
           </Button>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 xl:grid-cols-3">
-        <CommandBlock label="One-time macOS service" command={installCommand} onCopy={() => copyCommand("install")} copied={copied === "install"} />
+      <div className="mt-4 grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
+        <CommandBlock label="macOS service" command={macosInstallCommand} onCopy={() => copyCommand("macos")} copied={copied === "macos"} />
+        <CommandBlock
+          label="Windows scheduled task"
+          command={windowsInstallCommand}
+          onCopy={() => copyCommand("windows")}
+          copied={copied === "windows"}
+        />
         <CommandBlock label="Manual foreground fallback" command={manualCommand} onCopy={() => copyCommand("manual")} copied={copied === "manual"} />
         <CommandBlock label="Repo development" command={devCommand} onCopy={() => copyCommand("dev")} copied={copied === "dev"} />
       </div>

@@ -12,14 +12,19 @@ Cloudflare hosts these services:
 - `fusion-mcp`: optional MCP Worker that points at `fusion-api`.
 
 The Go runner is not deployed to Cloudflare. For the current source checkout,
-install it once on macOS:
+install it once on the user's trusted machine:
 
 ```bash
 npm run runner:install:macos -- --cloud-url https://fusion-api.asthrix.workers.dev
 ```
 
-That installer registers a LaunchAgent, so the runner starts on login and
-restarts automatically. The runner detects local CLIs, registers models, polls
+```powershell
+npm run runner:install:windows -- --cloud-url https://fusion-api.asthrix.workers.dev
+```
+
+The macOS installer registers a LaunchAgent. The Windows installer registers a
+current-user scheduled task. Both keep the runner available after login without a
+manual terminal command. The runner detects local CLIs, registers models, polls
 jobs from the API, runs panel/judge/final jobs locally, and streams results back
 to Cloudflare.
 
@@ -110,10 +115,14 @@ curl https://fusion-api.asthrix.workers.dev/api/health
 curl https://fusion-api.asthrix.workers.dev/api/runners
 ```
 
-Then start a local runner:
+Then install or refresh a local runner:
 
 ```bash
 npm run runner:install:macos -- --cloud-url https://fusion-api.asthrix.workers.dev
+```
+
+```powershell
+npm run runner:install:windows -- --cloud-url https://fusion-api.asthrix.workers.dev
 ```
 
 Open the deployed web app and check `/runners`. The runner should appear with

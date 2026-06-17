@@ -22,6 +22,35 @@ npm run runner:uninstall:macos
 npm run runner:uninstall:macos -- --all
 ```
 
+## One-time Windows install
+
+For the current source checkout, install the runner as a current-user Windows
+scheduled task:
+
+```powershell
+npm run runner:install:windows -- --cloud-url https://fusion-api.asthrix.workers.dev
+```
+
+The installer builds `fusion-runner.exe` when Go is available, otherwise copies
+the checked-in Windows binary from `apps/runner-go/dist`. It installs the runner
+under `%USERPROFILE%\.fusion-harness\bin`, creates a `fusion-runner.cmd` shim,
+adds the shim directory to the user PATH, writes
+`%USERPROFILE%\.fusion-harness\config.json`, and registers the `AsthriX Fusion Runner`
+scheduled task.
+
+After that, the user does not need to run `fusion-runner serve` manually. Windows
+starts the task on login. The task launches a small PowerShell wrapper that
+restarts the runner if it exits and writes logs to
+`%USERPROFILE%\.fusion-harness\logs`.
+
+Useful maintenance commands:
+
+```powershell
+npm run runner:logs:windows
+npm run runner:uninstall:windows
+npm run runner:uninstall:windows -- --all
+```
+
 ## Process model
 
 Local development normally uses three processes:
