@@ -13,6 +13,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters"
+	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters/codex"
+	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters/opencode"
 	"github.com/asthrix/fusion-harness/apps/runner-go/internal/cloud"
 	"github.com/asthrix/fusion-harness/apps/runner-go/internal/config"
 	"github.com/asthrix/fusion-harness/apps/runner-go/internal/discovery"
@@ -191,6 +194,8 @@ func runServe(args []string) error {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	cloudURL := flags.String("cloud-url", "", "Fusion API base URL")
 	interval := flags.Duration("heartbeat-interval", 30*time.Second, "heartbeat interval")
+	pollInterval := flags.Duration("poll-interval", 2*time.Second, "job claim poll interval")
+	leaseSeconds := flags.Int("lease-seconds", 300, "job lease duration in seconds")
 	once := flags.Bool("once", false, "register and send one heartbeat, then exit")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -223,19 +228,214 @@ func runServe(args []string) error {
 		return client.Heartbeat(ctx, cfg.RunnerID, map[string]any{"runner_id": cfg.RunnerID})
 	}
 
-	ticker := time.NewTicker(*interval)
+	go heartbeatLoop(ctx, client, cfg.RunnerID, *interval)
+	return jobClaimLoop(ctx, client, cfg, *pollInterval, *leaseSeconds)
+}
+
+func heartbeatLoop(ctx context.Context, client cloud.Client, runnerID string, interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case <-ticker.C:
-			if err := client.Heartbeat(ctx, cfg.RunnerID, map[string]any{"runner_id": cfg.RunnerID}); err != nil {
+			if err := client.Heartbeat(ctx, runnerID, map[string]any{"runner_id": runnerID}); err != nil {
 				fmt.Fprintf(os.Stderr, "heartbeat failed: %v\n", err)
 			}
 		}
 	}
+}
+
+func jobClaimLoop(ctx context.Context, client cloud.Client, cfg config.Config, pollInterval time.Duration, leaseSeconds int) error {
+	if pollInterval <= 0 {
+		pollInterval = 2 * time.Second
+	}
+	if leaseSeconds <= 0 {
+		leaseSeconds = 300
+	}
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		job, err := client.ClaimJob(ctx, cfg.RunnerID, cfg.RunnerID, leaseSeconds)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "job claim failed: %v\n", err)
+		} else if job != nil {
+			if err := executeCloudJob(ctx, client, cfg, *job); err != nil {
+				fmt.Fprintf(os.Stderr, "job %s failed: %v\n", job.ID, err)
+			}
+			continue
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+		}
+	}
+}
+
+func executeCloudJob(ctx context.Context, client cloud.Client, cfg config.Config, job cloud.ClaimedJob) error {
+	payload := job.Payload
+	if payload.JobID == "" {
+		payload.JobID = job.ID
+	}
+	if payload.RunID == "" {
+		payload.RunID = job.RunID
+	}
+	if payload.PermissionProfile == "" {
+		payload.PermissionProfile = cfg.DefaultProfile
+	}
+	if payload.TimeoutMs <= 0 {
+		payload.TimeoutMs = int((10 * time.Minute).Milliseconds())
+	}
+
+	runner, err := adapterForCloudJob(payload.Adapter, cfg)
+	if err != nil {
+		failErr := client.FailJob(ctx, cfg.RunnerID, payload.JobID, cloud.JobCompletion{
+			Status: "failed",
+			Error:  err.Error(),
+		})
+		if failErr != nil {
+			return fmt.Errorf("%w; additionally failed to report job failure: %v", err, failErr)
+		}
+		return err
+	}
+
+	workspacePath, err := workspacePathForJob(payload, cfg)
+	if err != nil {
+		failErr := client.FailJob(ctx, cfg.RunnerID, payload.JobID, cloud.JobCompletion{
+			Status: "failed",
+			Error:  err.Error(),
+		})
+		if failErr != nil {
+			return fmt.Errorf("%w; additionally failed to report job failure: %v", err, failErr)
+		}
+		return err
+	}
+
+	input := adapters.RunInput{
+		RunID:             payload.RunID,
+		JobID:             payload.JobID,
+		WorkspacePath:     workspacePath,
+		Prompt:            payload.Prompt,
+		Model:             modelArg(payload.Model),
+		PermissionProfile: payload.PermissionProfile,
+		TimeoutMs:         payload.TimeoutMs,
+	}
+	emit := func(event adapters.RunEvent) {
+		if err := client.PostJobEvent(ctx, cfg.RunnerID, payload.JobID, cloudEventFromAdapter(event, cfg.RunnerID)); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to post job event %s: %v\n", event.Type, err)
+		}
+	}
+
+	result, runErr := runner.Run(ctx, input, emit)
+	if result == nil {
+		result = &adapters.RunResult{Status: "failed"}
+	}
+	if runErr != nil && result.Error == "" {
+		result.Error = runErr.Error()
+	}
+	if result.OutputText != "" {
+		if err := client.PostJobEvent(ctx, cfg.RunnerID, payload.JobID, cloud.RunnerEvent{
+			Type:      outputEventType(payload.Kind),
+			RunID:     payload.RunID,
+			JobID:     payload.JobID,
+			RunnerID:  cfg.RunnerID,
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+			Data: map[string]any{
+				"text":      result.OutputText,
+				"modelId":   payload.ModelID,
+				"adapter":   payload.Adapter,
+				"model":     payload.Model,
+				"role":      payload.Role,
+				"fullChunk": true,
+			},
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to post output event for job %s: %v\n", payload.JobID, err)
+		}
+	}
+
+	completion := cloud.JobCompletion{
+		Status:       result.Status,
+		OutputText:   result.OutputText,
+		Error:        result.Error,
+		LatencyMs:    result.LatencyMs,
+		Usage:        result.Usage,
+		ArtifactKeys: result.ArtifactKeys,
+	}
+	if result.Status == "completed" && runErr == nil {
+		return client.CompleteJob(ctx, cfg.RunnerID, payload.JobID, completion)
+	}
+	if completion.Status == "" || completion.Status == "completed" {
+		completion.Status = "failed"
+	}
+	return client.FailJob(ctx, cfg.RunnerID, payload.JobID, completion)
+}
+
+func adapterForCloudJob(adapter string, cfg config.Config) (adapters.Adapter, error) {
+	switch adapter {
+	case "opencode":
+		return opencode.Adapter{AllowedRoots: cfg.AllowedRoots, ToolDirs: cfg.ToolDirs}, nil
+	case "codex":
+		return codex.Adapter{AllowedRoots: cfg.AllowedRoots, ToolDirs: cfg.ToolDirs}, nil
+	default:
+		if strings.TrimSpace(adapter) == "" {
+			return nil, fmt.Errorf("job adapter is required")
+		}
+		return nil, fmt.Errorf("%s execution is not implemented in the Go runner yet", adapter)
+	}
+}
+
+func workspacePathForJob(payload cloud.JobPayload, cfg config.Config) (string, error) {
+	if strings.TrimSpace(payload.WorkspacePath) != "" {
+		return payload.WorkspacePath, nil
+	}
+	if len(cfg.AllowedRoots) > 0 && strings.TrimSpace(cfg.AllowedRoots[0]) != "" {
+		return cfg.AllowedRoots[0], nil
+	}
+	return "", fmt.Errorf("job workspace path is missing and no allowed roots are configured")
+}
+
+func cloudEventFromAdapter(event adapters.RunEvent, runnerID string) cloud.RunnerEvent {
+	timestamp := event.Timestamp
+	if timestamp == "" {
+		timestamp = time.Now().UTC().Format(time.RFC3339)
+	}
+	data := event.Data
+	if data == nil {
+		data = map[string]any{}
+	}
+
+	return cloud.RunnerEvent{
+		Type:      event.Type,
+		RunID:     event.RunID,
+		JobID:     event.JobID,
+		RunnerID:  runnerID,
+		Timestamp: timestamp,
+		Data:      data,
+	}
+}
+
+func outputEventType(kind string) string {
+	switch kind {
+	case "direct", "final":
+		return "final.delta"
+	case "judge":
+		return "judge.output.delta"
+	default:
+		return "panel.output.delta"
+	}
+}
+
+func modelArg(model string) string {
+	if model == "default" {
+		return ""
+	}
+	return model
 }
 
 func runTest(ctx context.Context, args []string) error {
