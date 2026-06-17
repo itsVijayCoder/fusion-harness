@@ -51,6 +51,8 @@ const adapters: AdapterId[] = [
   "codebuddy",
   "reasonix",
   "antigravity",
+  "openrouter",
+  "openrouter-fusion",
   "api-key",
   "cloudflare-ai-gateway",
 ];
@@ -595,7 +597,12 @@ function suggestedModel(adapter: AdapterId, model: string, displayName: string, 
     provider,
     model,
     displayName,
-    authMode: adapter === "cloudflare-ai-gateway" ? "cloud_gateway" : adapter === "api-key" ? "api_key" : "cli_session",
+    authMode:
+      adapter === "cloudflare-ai-gateway"
+        ? "cloud_gateway"
+        : adapter === "api-key" || adapter === "openrouter" || adapter === "openrouter-fusion"
+          ? "api_key"
+          : "cli_session",
     availability: "configured_unverified",
     source: "suggested",
     optionSource: "suggested",
@@ -644,6 +651,8 @@ function adapterLabel(adapter: AdapterId) {
     codebuddy: "Codebuddy",
     reasonix: "Reasonix",
     antigravity: "Antigravity",
+    openrouter: "OpenRouter",
+    "openrouter-fusion": "OpenRouter Fusion",
     "api-key": "API key",
     "cloudflare-ai-gateway": "AI Gateway",
   };
