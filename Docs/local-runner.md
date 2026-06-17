@@ -29,7 +29,7 @@ from any directory because it does not require a source checkout or
 `package.json`:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://fusion-harness.asthrix.workers.dev/install/windows.ps1' -OutFile ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')); & ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')) --cloud-url 'https://fusion-api.asthrix.workers.dev' --binary-url 'https://fusion-harness.asthrix.workers.dev/downloads/fusion-runner-windows-amd64.exe'"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm 'https://fusion-harness.asthrix.workers.dev/install/windows.ps1'))) --cloud-url 'https://fusion-api.asthrix.workers.dev'"
 ```
 
 For the current source checkout, the repo-local npm script is also available:
@@ -50,6 +50,10 @@ After that, the user does not need to run `fusion-runner serve` manually. Window
 starts the task on login. The task launches a small PowerShell wrapper that
 restarts the runner if it exits and writes logs to
 `%USERPROFILE%\.fusion-harness\logs`.
+
+The installer is safe to rerun after a partial install. It overwrites the runner
+binary and scheduled task, preserves the same config path, and refreshes the
+runner registration.
 
 Useful maintenance commands:
 

@@ -21,8 +21,7 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
   }, []);
   const macosInstallCommand = `npm run runner:install:macos -- --cloud-url ${cloudUrl}`;
   const windowsInstallerUrl = `${appUrl}/install/windows.ps1`;
-  const windowsBinaryUrl = `${appUrl}/downloads/fusion-runner-windows-amd64.exe`;
-  const windowsInstallCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '${windowsInstallerUrl}' -OutFile ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')); & ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')) --cloud-url '${cloudUrl}' --binary-url '${windowsBinaryUrl}'"`;
+  const windowsInstallCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm '${windowsInstallerUrl}'))) --cloud-url '${cloudUrl}'"`;
   const manualCommand = `fusion-runner serve --cloud-url ${cloudUrl}`;
   const devCommand = `cd apps/runner-go && go run ./cmd/fusion-runner serve --cloud-url ${cloudUrl}`;
 
