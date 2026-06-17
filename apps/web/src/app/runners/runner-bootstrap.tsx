@@ -14,12 +14,15 @@ type CommandKind = "macos" | "windows" | "manual" | "dev";
 export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
   const [copied, setCopied] = useState<CommandKind | undefined>();
   const cloudUrl = useMemo(() => apiUrl("").replace(/\/$/, ""), []);
+  const appUrl = useMemo(() => (typeof window === "undefined" ? "https://fusion-harness.asthrix.workers.dev" : window.location.origin), []);
   const preferredInstall = useMemo<"macos" | "windows">(() => {
     if (typeof navigator === "undefined") return "macos";
     return /windows|win32|win64/i.test(`${navigator.userAgent} ${navigator.platform}`) ? "windows" : "macos";
   }, []);
   const macosInstallCommand = `npm run runner:install:macos -- --cloud-url ${cloudUrl}`;
-  const windowsInstallCommand = `npm run runner:install:windows -- --cloud-url ${cloudUrl}`;
+  const windowsInstallerUrl = `${appUrl}/install/windows.ps1`;
+  const windowsBinaryUrl = `${appUrl}/downloads/fusion-runner-windows-amd64.exe`;
+  const windowsInstallCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '${windowsInstallerUrl}' -OutFile ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')); & ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')) --cloud-url '${cloudUrl}' --binary-url '${windowsBinaryUrl}'"`;
   const manualCommand = `fusion-runner serve --cloud-url ${cloudUrl}`;
   const devCommand = `cd apps/runner-go && go run ./cmd/fusion-runner serve --cloud-url ${cloudUrl}`;
 

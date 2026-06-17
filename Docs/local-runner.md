@@ -24,19 +24,27 @@ npm run runner:uninstall:macos -- --all
 
 ## One-time Windows install
 
-For the current source checkout, install the runner as a current-user Windows
-scheduled task:
+For end users, install the runner from the deployed web app. This command works
+from any directory because it does not require a source checkout or
+`package.json`:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://fusion-harness.asthrix.workers.dev/install/windows.ps1' -OutFile ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')); & ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')) --cloud-url 'https://fusion-api.asthrix.workers.dev' --binary-url 'https://fusion-harness.asthrix.workers.dev/downloads/fusion-runner-windows-amd64.exe'"
+```
+
+For the current source checkout, the repo-local npm script is also available:
 
 ```powershell
 npm run runner:install:windows -- --cloud-url https://fusion-api.asthrix.workers.dev
 ```
 
-The installer builds `fusion-runner.exe` when Go is available, otherwise copies
-the checked-in Windows binary from `apps/runner-go/dist`. It installs the runner
-under `%USERPROFILE%\.fusion-harness\bin`, creates a `fusion-runner.cmd` shim,
-adds the shim directory to the user PATH, writes
-`%USERPROFILE%\.fusion-harness\config.json`, and registers the `AsthriX Fusion Runner`
-scheduled task.
+The hosted installer downloads `fusion-runner.exe` from the deployed web app.
+The repo-local installer builds `fusion-runner.exe` when Go is available,
+otherwise copies the checked-in Windows binary from `apps/runner-go/dist`. Both
+install the runner under `%USERPROFILE%\.fusion-harness\bin`, create a
+`fusion-runner.cmd` shim, add the shim directory to the user PATH, write
+`%USERPROFILE%\.fusion-harness\config.json`, and register the
+`AsthriX Fusion Runner` scheduled task.
 
 After that, the user does not need to run `fusion-runner serve` manually. Windows
 starts the task on login. The task launches a small PowerShell wrapper that

@@ -19,7 +19,7 @@ npm run runner:install:macos -- --cloud-url https://fusion-api.asthrix.workers.d
 ```
 
 ```powershell
-npm run runner:install:windows -- --cloud-url https://fusion-api.asthrix.workers.dev
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://fusion-harness.asthrix.workers.dev/install/windows.ps1' -OutFile ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')); & ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')) --cloud-url 'https://fusion-api.asthrix.workers.dev' --binary-url 'https://fusion-harness.asthrix.workers.dev/downloads/fusion-runner-windows-amd64.exe'"
 ```
 
 The macOS installer registers a LaunchAgent. The Windows installer registers a
@@ -122,7 +122,7 @@ npm run runner:install:macos -- --cloud-url https://fusion-api.asthrix.workers.d
 ```
 
 ```powershell
-npm run runner:install:windows -- --cloud-url https://fusion-api.asthrix.workers.dev
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://fusion-harness.asthrix.workers.dev/install/windows.ps1' -OutFile ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')); & ([IO.Path]::Combine([IO.Path]::GetTempPath(), 'fusion-runner-install.ps1')) --cloud-url 'https://fusion-api.asthrix.workers.dev' --binary-url 'https://fusion-harness.asthrix.workers.dev/downloads/fusion-runner-windows-amd64.exe'"
 ```
 
 Open the deployed web app and check `/runners`. The runner should appear with
