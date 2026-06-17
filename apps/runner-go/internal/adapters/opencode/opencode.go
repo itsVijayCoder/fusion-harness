@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"context"
+	"os"
 	"strings"
 	"time"
 
@@ -56,11 +57,15 @@ func (adapter Adapter) ListModels(ctx context.Context) ([]adapters.ModelRef, err
 		return nil, nil
 	}
 
+	workingDir, allowedRoots, cleanup := neutralProbeWorkspace(adapter.AllowedRoots)
+	defer cleanup()
+
 	result, err := host.Run(ctx, host.CommandSpec{
 		Name:         tool.Path,
 		Args:         []string{"models"},
-		WorkingDir:   firstAllowedRoot(adapter.AllowedRoots),
-		AllowedRoots: adapter.AllowedRoots,
+		WorkingDir:   workingDir,
+		AllowedRoots: allowedRoots,
+		Env:          map[string]string{"OPENCODE_DISABLE_PROJECT_CONFIG": "true"},
 		Timeout:      10 * time.Second,
 	})
 	if err != nil && result.Stdout == "" {
@@ -182,9 +187,30 @@ func modelRef(model string, availability string, source string) adapters.ModelRe
 	}
 }
 
-func firstAllowedRoot(roots []string) string {
-	if len(roots) == 0 {
-		return "."
+func neutralProbeWorkspace(roots []string) (string, []string, func()) {
+	dir, err := os.MkdirTemp("", "fusion-opencode-probe-*")
+	if err == nil {
+		return dir, appendIfMissing(roots, dir), func() { _ = os.RemoveAll(dir) }
 	}
-	return roots[0]
+
+	for _, root := range roots {
+		if info, statErr := os.Stat(root); statErr == nil && info.IsDir() {
+			return root, roots, func() {}
+		}
+	}
+
+	cwd, cwdErr := os.Getwd()
+	if cwdErr == nil {
+		return cwd, appendIfMissing(roots, cwd), func() {}
+	}
+	return ".", appendIfMissing(roots, "."), func() {}
+}
+
+func appendIfMissing(items []string, item string) []string {
+	for _, existing := range items {
+		if existing == item {
+			return items
+		}
+	}
+	return append(append([]string{}, items...), item)
 }

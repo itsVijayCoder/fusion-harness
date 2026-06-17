@@ -166,18 +166,41 @@ function resolveRequestedModel(models: ModelRef[], requestedModel: string, fallb
   const normalized = requestedModel.trim();
   if (!normalized) return undefined;
 
-  const match = models.find(
-    (model) =>
-      model.id === normalized ||
-      model.model === normalized ||
-      `${model.adapter}/${model.model}` === normalized ||
-      (model.provider ? `${model.provider}/${model.model}` === normalized : false),
-  );
+  const matches = models.filter((model) => modelMatchesRequest(model, normalized));
+  const suffixMatches = suffixModelMatches(models, normalized, fallbackAdapter);
+  const match = [...matches, ...suffixMatches].sort((a, b) => modelResolutionScore(b) - modelResolutionScore(a))[0];
 
   if (match) return match;
   const customModel = sanitizeCustomModelId(normalized);
   if (!customModel) return undefined;
   return synthesizeModel(customModel, fallbackAdapter);
+}
+
+function modelMatchesRequest(model: ModelRef, normalized: string) {
+  return (
+    model.id === normalized ||
+    model.model === normalized ||
+    `${model.adapter}/${model.model}` === normalized ||
+    (model.provider ? `${model.provider}/${model.model}` === normalized : false)
+  );
+}
+
+function suffixModelMatches(models: ModelRef[], normalized: string, fallbackAdapter?: AdapterId) {
+  const [firstSegment, ...rest] = normalized.split("/");
+  const requestedAdapter = isAdapterId(firstSegment) ? firstSegment : fallbackAdapter;
+  const requestedModel = isAdapterId(firstSegment) ? rest.join("/") : normalized;
+  if (!requestedModel.includes("/")) return [];
+
+  return models.filter((model) => {
+    if (requestedAdapter && model.adapter !== requestedAdapter) return false;
+    return model.model.endsWith(`/${requestedModel}`) || model.id.endsWith(`/${requestedModel}`);
+  });
+}
+
+function modelResolutionScore(model: ModelRef) {
+  const sourceBonus = model.source === "live" ? 100 : model.source === "fallback" || model.source === "suggested" ? 20 : 0;
+  const availabilityBonus = model.availability === "verified" ? 40 : model.availability === "listed" ? 30 : model.availability === "detected" ? 20 : 0;
+  return sourceBonus + availabilityBonus + scoreModel(model);
 }
 
 function synthesizeModel(requestedModel: string, fallbackAdapter?: AdapterId): ModelRef {

@@ -568,7 +568,9 @@ function buildModelOptions(models: ModelRef[], customOptions: ModelOption[]) {
     if (!options.has(model.id)) options.set(model.id, model);
   }
   for (const model of customOptions) {
-    options.set(model.id, model);
+    if (!resolveCanonicalModelId(model.id, [...options.values()])) {
+      options.set(model.id, model);
+    }
   }
 
   return [...options.values()].sort((a, b) => sourceScore(a.optionSource) - sourceScore(b.optionSource) || a.adapter.localeCompare(b.adapter) || a.model.localeCompare(b.model));
@@ -719,14 +721,33 @@ function customOptionsFromStored(selection?: StoredModelSelection) {
 }
 
 function storedModelIds(ids: string[] | undefined, options: ModelOption[], limit: number) {
-  const optionIds = new Set(options.map((option) => option.id));
-  const validIds = (ids ?? []).filter((id) => optionIds.has(id)).slice(0, limit);
+  const validIds = (ids ?? [])
+    .flatMap((id) => {
+      const resolved = resolveCanonicalModelId(id, options);
+      return resolved ? [resolved] : [];
+    })
+    .slice(0, limit);
   return validIds.length ? validIds : undefined;
 }
 
 function storedModelId(id: string | undefined, options: ModelOption[]) {
   if (!id) return undefined;
-  return options.some((option) => option.id === id) ? id : undefined;
+  return resolveCanonicalModelId(id, options);
+}
+
+function resolveCanonicalModelId(id: string, options: ModelOption[]) {
+  if (options.some((option) => option.id === id)) return id;
+
+  const [adapter, ...modelParts] = id.split("/");
+  if (!isOneOf(adapters, adapter) || modelParts.length < 2) return undefined;
+  const modelSuffix = modelParts.join("/");
+  const suffixMatches = options.filter(
+    (option) =>
+      option.adapter === adapter &&
+      (option.model.endsWith(`/${modelSuffix}`) || option.id.endsWith(`/${modelSuffix}`)) &&
+      option.optionSource !== "custom",
+  );
+  return suffixMatches.sort((a, b) => sourceScore(a.optionSource) - sourceScore(b.optionSource))[0]?.id;
 }
 
 function sanitizeStoredModelId(value: unknown) {

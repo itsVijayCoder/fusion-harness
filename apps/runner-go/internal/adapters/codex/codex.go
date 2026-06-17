@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters"
@@ -56,11 +57,14 @@ func (adapter Adapter) ListModels(ctx context.Context) ([]adapters.ModelRef, err
 		return nil, nil
 	}
 
+	workingDir, allowedRoots, cleanup := neutralProbeWorkspace(adapter.AllowedRoots)
+	defer cleanup()
+
 	result, err := host.Run(ctx, host.CommandSpec{
 		Name:         tool.Path,
 		Args:         []string{"debug", "models"},
-		WorkingDir:   firstAllowedRoot(adapter.AllowedRoots),
-		AllowedRoots: adapter.AllowedRoots,
+		WorkingDir:   workingDir,
+		AllowedRoots: allowedRoots,
 		Timeout:      10 * time.Second,
 	})
 	options := localagents.ParseCodexDebugModels(result.Stdout)
@@ -169,9 +173,30 @@ func modelRef(model string, displayName string, live bool) adapters.ModelRef {
 	}
 }
 
-func firstAllowedRoot(roots []string) string {
-	if len(roots) == 0 {
-		return "."
+func neutralProbeWorkspace(roots []string) (string, []string, func()) {
+	dir, err := os.MkdirTemp("", "fusion-codex-probe-*")
+	if err == nil {
+		return dir, appendIfMissing(roots, dir), func() { _ = os.RemoveAll(dir) }
 	}
-	return roots[0]
+
+	for _, root := range roots {
+		if info, statErr := os.Stat(root); statErr == nil && info.IsDir() {
+			return root, roots, func() {}
+		}
+	}
+
+	cwd, cwdErr := os.Getwd()
+	if cwdErr == nil {
+		return cwd, appendIfMissing(roots, cwd), func() {}
+	}
+	return ".", appendIfMissing(roots, "."), func() {}
+}
+
+func appendIfMissing(items []string, item string) []string {
+	for _, existing := range items {
+		if existing == item {
+			return items
+		}
+	}
+	return append(append([]string{}, items...), item)
 }

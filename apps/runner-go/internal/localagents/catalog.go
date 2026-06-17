@@ -3,6 +3,7 @@ package localagents
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"time"
 
@@ -407,11 +408,19 @@ func detect(ctx context.Context, def AgentDef, toolDirs []string) discovery.Tool
 }
 
 func listLiveModels(ctx context.Context, def AgentDef, path string, allowedRoots []string) []ModelOption {
+	workingDir, roots, cleanup := neutralProbeWorkspace(def.ID, allowedRoots)
+	defer cleanup()
+	env := map[string]string{}
+	if def.ID == "opencode" {
+		env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
+	}
+
 	result, err := host.Run(ctx, host.CommandSpec{
 		Name:         path,
 		Args:         def.ListModelsArgs,
-		WorkingDir:   firstAllowedRoot(allowedRoots),
-		AllowedRoots: allowedRoots,
+		WorkingDir:   workingDir,
+		AllowedRoots: roots,
+		Env:          env,
 		Timeout:      10 * time.Second,
 	})
 	if err != nil && result.Stdout == "" {
@@ -547,11 +556,32 @@ func inferProvider(def AgentDef, modelID string) string {
 	return def.ID
 }
 
-func firstAllowedRoot(roots []string) string {
-	if len(roots) == 0 {
-		return "."
+func neutralProbeWorkspace(agentID string, roots []string) (string, []string, func()) {
+	dir, err := os.MkdirTemp("", "fusion-"+agentID+"-probe-*")
+	if err == nil {
+		return dir, appendIfMissing(roots, dir), func() { _ = os.RemoveAll(dir) }
 	}
-	return roots[0]
+
+	for _, root := range roots {
+		if info, statErr := os.Stat(root); statErr == nil && info.IsDir() {
+			return root, roots, func() {}
+		}
+	}
+
+	cwd, cwdErr := os.Getwd()
+	if cwdErr == nil {
+		return cwd, appendIfMissing(roots, cwd), func() {}
+	}
+	return ".", appendIfMissing(roots, "."), func() {}
+}
+
+func appendIfMissing(items []string, item string) []string {
+	for _, existing := range items {
+		if existing == item {
+			return items
+		}
+	}
+	return append(append([]string{}, items...), item)
 }
 
 func displayName(option ModelOption) string {
