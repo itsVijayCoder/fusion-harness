@@ -6,6 +6,7 @@ import {
   createPanelOutput,
   createRunEvent,
   createRunnerJob,
+  ensureModel,
   ensurePrincipal,
   getFusionRun,
   listModels,
@@ -233,6 +234,33 @@ async function enqueueRunnerJob(
     throw new Error(`Execution step ${step.id} is missing runner or model routing`);
   }
 
+  await ensureModel(env.DB, {
+    id: step.modelId,
+    orgId,
+    runnerId: step.runnerId,
+    adapter: step.adapter,
+    provider: inferProvider(step.adapter, step.model),
+    model: step.model,
+    displayName: step.model,
+    authMode:
+      step.adapter === "cloudflare-ai-gateway"
+        ? "cloud_gateway"
+        : step.adapter === "api-key" || step.adapter === "openrouter" || step.adapter === "openrouter-fusion"
+          ? "api_key"
+          : "cli_session",
+    availability: "configured_unverified",
+    source: "custom",
+    capabilities: {
+      streaming: true,
+      tools: step.adapter !== "api-key",
+      fileEdits: step.adapter === "opencode" || step.adapter === "codex",
+      shell: step.adapter === "opencode" || step.adapter === "codex",
+      jsonOutput: true,
+      modelListing: false,
+    },
+    now,
+  });
+
   const jobPrompt = step.kind === "direct" ? userPrompt : buildPanelPrompt(userPrompt, step.role ?? "panel");
   const payload: RunnerJobPayload = {
     jobId: step.jobId,
@@ -283,6 +311,12 @@ async function enqueueRunnerJob(
 
 function panelOutputId(jobId: string) {
   return formatEntityId("panel", jobId);
+}
+
+function inferProvider(adapter: ModelRef["adapter"], model: string) {
+  if (adapter === "codex") return "openai";
+  const [provider] = model.split("/");
+  return provider && provider !== model ? provider : adapter;
 }
 
 async function persistJobInput(env: Env, orgId: string, runId: string, jobId: string, payload: RunnerJobPayload) {

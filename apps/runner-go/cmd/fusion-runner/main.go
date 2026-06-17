@@ -293,7 +293,7 @@ func executeCloudJob(ctx context.Context, client cloud.Client, cfg config.Config
 		payload.TimeoutMs = int((10 * time.Minute).Milliseconds())
 	}
 
-	runner, err := adapterForCloudJob(payload.Adapter, cfg)
+	workspacePath, allowedRoots, err := workspacePathForJob(payload, cfg)
 	if err != nil {
 		failErr := client.FailJob(ctx, cfg.RunnerID, payload.JobID, cloud.JobCompletion{
 			Status: "failed",
@@ -305,7 +305,7 @@ func executeCloudJob(ctx context.Context, client cloud.Client, cfg config.Config
 		return err
 	}
 
-	workspacePath, err := workspacePathForJob(payload, cfg)
+	runner, err := adapterForCloudJob(payload.Adapter, cfg, allowedRoots)
 	if err != nil {
 		failErr := client.FailJob(ctx, cfg.RunnerID, payload.JobID, cloud.JobCompletion{
 			Status: "failed",
@@ -376,12 +376,12 @@ func executeCloudJob(ctx context.Context, client cloud.Client, cfg config.Config
 	return client.FailJob(ctx, cfg.RunnerID, payload.JobID, completion)
 }
 
-func adapterForCloudJob(adapter string, cfg config.Config) (adapters.Adapter, error) {
+func adapterForCloudJob(adapter string, cfg config.Config, allowedRoots []string) (adapters.Adapter, error) {
 	switch adapter {
 	case "opencode":
-		return opencode.Adapter{AllowedRoots: cfg.AllowedRoots, ToolDirs: cfg.ToolDirs}, nil
+		return opencode.Adapter{AllowedRoots: allowedRoots, ToolDirs: cfg.ToolDirs}, nil
 	case "codex":
-		return codex.Adapter{AllowedRoots: cfg.AllowedRoots, ToolDirs: cfg.ToolDirs}, nil
+		return codex.Adapter{AllowedRoots: allowedRoots, ToolDirs: cfg.ToolDirs}, nil
 	default:
 		if strings.TrimSpace(adapter) == "" {
 			return nil, fmt.Errorf("job adapter is required")
@@ -390,14 +390,25 @@ func adapterForCloudJob(adapter string, cfg config.Config) (adapters.Adapter, er
 	}
 }
 
-func workspacePathForJob(payload cloud.JobPayload, cfg config.Config) (string, error) {
+func workspacePathForJob(payload cloud.JobPayload, cfg config.Config) (string, []string, error) {
 	if strings.TrimSpace(payload.WorkspacePath) != "" {
-		return payload.WorkspacePath, nil
+		return payload.WorkspacePath, allowedRootsWithWorkspace(cfg.AllowedRoots, payload.WorkspacePath), nil
 	}
-	if len(cfg.AllowedRoots) > 0 && strings.TrimSpace(cfg.AllowedRoots[0]) != "" {
-		return cfg.AllowedRoots[0], nil
+
+	for _, root := range cfg.AllowedRoots {
+		if strings.TrimSpace(root) == "" {
+			continue
+		}
+		if info, err := os.Stat(root); err == nil && info.IsDir() {
+			return root, cfg.AllowedRoots, nil
+		}
 	}
-	return "", fmt.Errorf("job workspace path is missing and no allowed roots are configured")
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", nil, err
+	}
+	return cwd, allowedRootsWithWorkspace(cfg.AllowedRoots, cwd), nil
 }
 
 func cloudEventFromAdapter(event adapters.RunEvent, runnerID string) cloud.RunnerEvent {

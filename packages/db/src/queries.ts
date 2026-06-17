@@ -96,6 +96,21 @@ export type CreatePanelOutputInput = {
   createdAt: string;
 };
 
+export type EnsureModelInput = {
+  id: string;
+  orgId: string;
+  runnerId?: string;
+  adapter: AdapterId;
+  provider?: string;
+  model: string;
+  displayName?: string;
+  authMode: AuthMode;
+  availability?: ModelAvailability;
+  source?: ModelSource;
+  capabilities: ModelRef["capabilities"];
+  now: string;
+};
+
 export type UpdatePanelOutputInput = {
   id: string;
   status: PanelOutputStatus;
@@ -673,6 +688,51 @@ export async function listModels(db: D1DatabaseLike, orgId: string): Promise<Mod
   return results.map(mapModel);
 }
 
+export async function ensureModel(db: D1DatabaseLike, input: EnsureModelInput): Promise<ModelRef> {
+  await db
+    .prepare(
+      `INSERT INTO models (
+         id, org_id, runner_id, adapter, provider, model, display_name, auth_mode,
+         availability, source, capabilities_json, verified_at, created_at, updated_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         runner_id = COALESCE(excluded.runner_id, models.runner_id),
+         adapter = excluded.adapter,
+         provider = excluded.provider,
+         model = excluded.model,
+         display_name = excluded.display_name,
+         auth_mode = excluded.auth_mode,
+         availability = excluded.availability,
+         source = excluded.source,
+         capabilities_json = excluded.capabilities_json,
+         updated_at = excluded.updated_at`,
+    )
+    .bind(
+      input.id,
+      input.orgId,
+      input.runnerId ?? null,
+      input.adapter,
+      input.provider ?? null,
+      input.model,
+      input.displayName ?? input.model,
+      input.authMode,
+      input.availability ?? "configured_unverified",
+      input.source ?? "custom",
+      JSON.stringify(input.capabilities),
+      input.availability === "verified" ? input.now : null,
+      input.now,
+      input.now,
+    )
+    .run();
+
+  const model = await db.prepare("SELECT * FROM models WHERE org_id = ? AND id = ?").bind(input.orgId, input.id).first<ModelRow>();
+  if (!model) {
+    throw new Error("Model upsert did not produce a readable row");
+  }
+  return mapModel(model);
+}
+
 export async function listWorkspaces(db: D1DatabaseLike, orgId: string): Promise<WorkspaceRef[]> {
   const { results } = await db
     .prepare("SELECT * FROM workspaces WHERE org_id = ? ORDER BY updated_at DESC, name ASC")
@@ -876,7 +936,14 @@ async function replaceRunnerTools(db: D1DatabaseLike, runnerId: string, tools: T
 }
 
 async function replaceRunnerModels(db: D1DatabaseLike, input: RunnerRegistrationInput) {
-  await db.prepare("DELETE FROM models WHERE runner_id = ?").bind(input.runnerId).run();
+  await db
+    .prepare(
+      `DELETE FROM models
+       WHERE runner_id = ?
+         AND id NOT IN (SELECT model_id FROM panel_outputs)`,
+    )
+    .bind(input.runnerId)
+    .run();
 
   for (const model of input.models ?? []) {
     await db
