@@ -1,6 +1,7 @@
-import type { ModelRef, RunnerRef } from "@fusion-harness/shared";
+import type { ModelRef } from "@fusion-harness/shared";
+import { FusionApp } from "@/features/fusion/fusion-app";
+import { toModelOption } from "@/features/fusion/types";
 import { apiGet } from "@/lib/api";
-import { TaskConsole } from "./task-console";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +10,9 @@ type ModelResponse = {
   data: ModelRef[];
 };
 
-type RunnerResponse = { data: RunnerRef[] };
-
 export default async function ChatPage() {
-  const [models, runners] = await Promise.all([
-    apiGet<ModelResponse>("/api/models", { aliases: [], data: [] }),
-    apiGet<RunnerResponse>("/api/runners", { data: [] }),
-  ]);
+  const models = await apiGet<ModelResponse>("/api/models", { aliases: [], data: [] });
+  const options = models.data.data.map(toModelOption);
 
-  return <TaskConsole models={models.data.data} runners={runners.data.data} />;
+  return <FusionApp models={options} />;
 }

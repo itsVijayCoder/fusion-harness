@@ -1,0 +1,1 @@
+ALTER TABLE fusion_runs ADD COLUMN title TEXT;

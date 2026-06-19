@@ -166,16 +166,16 @@ export default async function RunnersPage() {
   ]);
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa] px-6 py-10 text-zinc-950">
+    <div className="min-h-screen bg-background px-6 py-10 text-foreground">
       <div className="mx-auto flex max-w-7xl flex-col gap-7">
         <header className="max-w-5xl">
-          <div className="flex items-end justify-between gap-4 border-b border-zinc-200">
-            <div className="flex h-10 items-center border-b-2 border-zinc-950 pr-16 text-sm font-semibold text-zinc-700">Local Agents</div>
-            <Button asChild variant="ghost" size="sm" className="mb-1 text-zinc-500">
+          <div className="flex items-end justify-between gap-4 border-b border-border">
+            <div className="flex h-10 items-center border-b-2 border-primary pr-16 text-sm font-semibold text-foreground">Local Agents</div>
+            <Button asChild variant="ghost" size="sm" className="mb-1 text-muted-foreground">
               <Link href="/chat">Back to Chat</Link>
             </Button>
           </div>
-          <p className="mt-5 text-sm leading-6 text-zinc-500">
+          <p className="mt-5 text-sm leading-6 text-muted-foreground">
             Fusion Runner ships with the app. Local agents are detected when their CLI is installed on the host and the runner registers its discovery report.
           </p>
         </header>
@@ -193,20 +193,20 @@ export default async function RunnersPage() {
               const Icon = agent.icon;
 
               return (
-                <article key={agent.id} className="flex min-h-[168px] flex-col items-center justify-between rounded-lg border border-zinc-200 bg-white p-4 text-center shadow-sm shadow-zinc-200/40">
+                <article key={agent.id} className="flex min-h-[168px] flex-col items-center justify-between rounded-lg border border-border bg-card p-4 text-center">
                   <div className="flex flex-col items-center gap-3">
-                    <span className={cn("flex size-12 items-center justify-center rounded-full", detected ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-500")}>
+                    <span className={cn("flex size-12 items-center justify-center rounded-full", detected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
                       <Icon aria-hidden className="size-6" />
                     </span>
                     <div>
-                      <h2 className="text-sm font-semibold text-zinc-800">{agent.name}</h2>
-                      <p className={cn("mt-1 text-xs font-medium", detected ? "text-zinc-500" : "text-zinc-400")}>
+                      <h2 className="text-sm font-semibold text-foreground">{agent.name}</h2>
+                      <p className={cn("mt-1 text-xs font-medium", detected ? "text-muted-foreground" : "text-muted-foreground")}>
                         {detected ? "Detected" : "Not detected"}
                         {modelCount ? ` · ${modelCount} models` : ""}
                       </p>
                     </div>
                   </div>
-                  <Button asChild={detected} disabled={!detected} variant="secondary" size="sm" className="w-full rounded-md bg-zinc-100 text-zinc-600 hover:bg-zinc-200">
+                  <Button asChild={detected} disabled={!detected} variant="secondary" size="sm" className="w-full rounded-md">
                     {detected ? <Link href="/chat">Start Chat</Link> : <span>Start Chat</span>}
                   </Button>
                 </article>
@@ -217,9 +217,9 @@ export default async function RunnersPage() {
 
         <Section title="Runner Diagnostics">
           {runners.data.data.length ? (
-            <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
               <table className="w-full text-left text-sm">
-                <thead className="bg-zinc-50 text-xs text-zinc-500">
+                <thead className="bg-muted/50 text-xs text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">Runner</th>
                     <th className="px-4 py-3 font-medium">Host</th>
@@ -228,16 +228,16 @@ export default async function RunnersPage() {
                     <th className="px-4 py-3 font-medium">Last Seen</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100">
+                <tbody className="divide-y divide-border">
                   {runners.data.data.map((runner) => (
                     <tr key={runner.id}>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
-                          <span className="font-medium text-zinc-800">{runner.name}</span>
+                          <span className="font-medium text-foreground">{runner.name}</span>
                           <StatusPill value={runner.status} />
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-zinc-500">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {runner.os} / {runner.arch}
                       </td>
                       <td className="px-4 py-3">
@@ -247,8 +247,8 @@ export default async function RunnersPage() {
                           ))}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-zinc-500">{runner.capabilities.executors.join(", ") || "host"}</td>
-                      <td className="px-4 py-3 text-zinc-500">{formatDateTime(runner.lastSeenAt)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{runner.capabilities.executors.join(", ") || "host"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDateTime(runner.lastSeenAt)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -56,6 +56,7 @@ export type CreateFusionRunInput = {
   executionPlan?: FusionExecutionPlan;
   parentRunId?: string;
   conversationId?: string;
+  title?: string;
   status?: FusionRunSummary["status"];
   createdAt: string;
 };
@@ -183,6 +184,7 @@ type FusionRunRow = {
   execution_plan_json: string | null;
   parent_run_id: string | null;
   conversation_id: string | null;
+  title: string | null;
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -392,9 +394,9 @@ export async function createFusionRun(db: D1DatabaseLike, input: CreateFusionRun
       `INSERT INTO fusion_runs (
          id, org_id, workspace_id, user_id, runner_id, status, mode, preset,
          permission_profile, prompt_object_key, execution_plan_json,
-         parent_run_id, conversation_id, created_at
+         parent_run_id, conversation_id, title, created_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       input.id,
@@ -410,6 +412,7 @@ export async function createFusionRun(db: D1DatabaseLike, input: CreateFusionRun
       input.executionPlan ? JSON.stringify(input.executionPlan) : null,
       input.parentRunId ?? null,
       input.conversationId ?? null,
+      input.title ?? null,
       input.createdAt,
     )
     .run();
@@ -1032,6 +1035,7 @@ function mapFusionRun(row: FusionRunRow): FusionRunSummary {
     executionPlan: parseJson<FusionExecutionPlan | undefined>(row.execution_plan_json, undefined),
     parentRunId: optional(row.parent_run_id),
     conversationId: optional(row.conversation_id),
+    title: optional(row.title),
     error: optional(row.error),
     createdAt: row.created_at,
     startedAt: optional(row.started_at),

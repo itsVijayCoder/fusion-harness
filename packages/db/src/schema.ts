@@ -98,6 +98,7 @@ export const fusionRuns = sqliteTable(
     executionPlanJson: text("execution_plan_json"),
     parentRunId: text("parent_run_id"),
     conversationId: text("conversation_id"),
+    title: text("title"),
     error: text("error"),
     createdAt: text("created_at").notNull(),
     startedAt: text("started_at"),

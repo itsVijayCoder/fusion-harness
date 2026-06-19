@@ -153,7 +153,7 @@ export function RunChat({ run }: RunChatProps) {
           <RiArrowLeftLine aria-hidden className="size-4" />
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="truncate font-mono text-sm text-foreground">{run.id}</span>
+          <span className="truncate text-sm font-medium text-foreground">{run.title ?? run.id}</span>
           <StatusPill value={currentStatus} />
           <span className="hidden text-xs text-muted-foreground sm:inline">
             {run.mode} · {formatDateTime(run.createdAt)}

@@ -72,6 +72,7 @@ export async function createRunFromRequest(
   const availableModels = await listModels(env.DB, principal.orgId);
   const runners = await listRunners(env.DB, principal.orgId);
   const userPrompt = renderMessages(payload.messages);
+  const title = deriveTitle(payload.messages);
   const selection = selectFusionModels({
     availableModels,
     preset: payload.preset ?? "mixed-coding",
@@ -128,6 +129,7 @@ export async function createRunFromRequest(
     executionPlan: plan,
     parentRunId: options?.parentRunId,
     conversationId: options?.conversationId,
+    title,
     createdAt: now,
   });
 
@@ -711,6 +713,14 @@ function resolveRunnerForStep(step: FusionExecutionStep, runners: RunnerRef[]) {
 
 function renderMessages(messages: FusionRunRequest["messages"]) {
   return messages.map((message) => `${message.role.toUpperCase()}:\n${message.content}`).join("\n\n");
+}
+
+function deriveTitle(messages: FusionRunRequest["messages"]): string {
+  const userMessage = messages.find((message) => message.role === "user");
+  const text = userMessage?.content ?? messages[0]?.content ?? "Untitled run";
+  const firstLine = text.split(/\r?\n/)[0]?.trim() ?? text;
+  if (firstLine.length <= 60) return firstLine;
+  return `${firstLine.slice(0, 57).trim()}...`;
 }
 
 function panelRole(index: number) {

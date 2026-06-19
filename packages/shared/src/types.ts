@@ -214,6 +214,7 @@ export type FusionRunSummary = {
   executionPlan?: FusionExecutionPlan;
   parentRunId?: string;
   conversationId?: string;
+  title?: string;
   error?: string;
   createdAt: string;
   startedAt?: string;

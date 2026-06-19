@@ -92,6 +92,7 @@ CREATE TABLE fusion_runs (
   execution_plan_json TEXT,
   parent_run_id TEXT,
   conversation_id TEXT,
+  title TEXT,
   error TEXT,
   created_at TEXT NOT NULL,
   started_at TEXT,
