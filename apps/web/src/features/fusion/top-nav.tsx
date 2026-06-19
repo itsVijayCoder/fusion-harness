@@ -1,31 +1,38 @@
 import { ChevronDown, Layers } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const navLinks = ["Home", "Models", "Fusion", "Chat", "Rankings", "Apps", "Docs"];
+const navLinks = [
+  { label: "Chat", href: "/chat" },
+  { label: "Agents", href: "/runners" },
+  { label: "Models", href: "/models" },
+  { label: "Dashboard", href: "/dashboard" },
+];
 
 export function TopNav() {
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
+        <Link href="/chat" className="flex items-center gap-2">
           <span className="flex size-6 items-center justify-center rounded-lg bg-primary">
             <Layers aria-hidden className="size-3.5 text-primary-foreground" />
           </span>
           <span className="text-sm font-semibold text-foreground">FusionLab</span>
-        </div>
+        </Link>
         <nav className="hidden items-center gap-0.5 md:flex">
           {navLinks.map((link) => (
-            <button
-              key={link}
+            <Link
+              key={link.href}
+              href={link.href}
               className={cn(
                 "rounded-md px-2.5 py-1 text-[13px] font-medium transition-colors duration-150",
-                link === "Fusion"
+                link.label === "Chat"
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {link}
-            </button>
+              {link.label}
+            </Link>
           ))}
         </nav>
       </div>

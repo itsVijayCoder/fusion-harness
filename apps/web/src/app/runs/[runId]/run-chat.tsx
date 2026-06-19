@@ -4,9 +4,8 @@ import { extractReadableOutput, type FusionRunDetail, type RunEvent, type RunSta
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  RiArrowLeftLine,
+  RiArrowDownSLine,
   RiArrowUpLine,
-  RiCloseLine,
   RiErrorWarningLine,
   RiFileList3Line,
   RiHistoryLine,
@@ -14,7 +13,10 @@ import {
   RiRobot2Line,
   RiUserLine,
 } from "@remixicon/react";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { OutputDrawer } from "@/components/output-drawer";
 import { StatusPill } from "@/components/product-ui";
+import { TopNav } from "@/features/fusion/top-nav";
 import { apiPost, apiUrl } from "@/lib/api";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -47,6 +49,14 @@ type Trace = {
   runStatus: RunStatus;
 };
 
+type DrawerState = {
+  title: string;
+  subtitle?: string;
+  status?: string;
+  content: string;
+  error?: string;
+} | null;
+
 export function RunChat({ run }: RunChatProps) {
   const router = useRouter();
   const [events, setEvents] = useState<RunEvent[]>([]);
@@ -55,8 +65,9 @@ export function RunChat({ run }: RunChatProps) {
   const [continueMessage, setContinueMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | undefined>(undefined);
+  const [drawer, setDrawer] = useState<DrawerState>(null);
+  const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const initialStatus = run.status;
   const messages = useMemo(() => run.messages ?? [], [run.messages]);
@@ -113,12 +124,14 @@ export function RunChat({ run }: RunChatProps) {
   const isRunActive = currentStatus === "queued" || currentStatus === "running" || currentStatus === "waiting_approval";
   const showLiveOutput = finalText.trim().length > 0 || trace.final.status === "running";
   const showThinking = isRunActive && !showLiveOutput;
+  const hasPanelOutputs = trace.panels.some((p) => p.text.trim().length > 0 || p.status === "running");
+  const hasJudgeOutput = judgeText.trim().length > 0 || trace.synthesis.status === "running";
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, finalText, showThinking, trace.panels.length]);
+  }, [messages, finalText, showThinking, trace.panels.length, expandedAccordions]);
 
   async function handleContinue() {
     const message = continueMessage.trim();
@@ -142,16 +155,52 @@ export function RunChat({ run }: RunChatProps) {
     }
   }
 
+  function toggleAccordion(id: string) {
+    setExpandedAccordions((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function openPanelDrawer(panel: PanelTrace) {
+    setDrawer({
+      title: panel.modelId,
+      subtitle: [panel.adapter, panel.role].filter(Boolean).join(" · ") || "panel",
+      status: panel.status,
+      content: panel.text,
+      error: panel.error,
+    });
+  }
+
+  function openJudgeDrawer() {
+    setDrawer({
+      title: "Judge / Synthesis",
+      subtitle: "Analysis from the final-output model",
+      status: trace.synthesis.status,
+      content: judgeText,
+      error: trace.synthesis.error,
+    });
+  }
+
+  function openFinalDrawer() {
+    setDrawer({
+      title: "Final Output",
+      subtitle: "Fused result",
+      status: trace.final.status,
+      content: finalText,
+      error: trace.final.error || trace.synthesis.error,
+    });
+  }
+
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col bg-background lg:h-[100dvh]">
+    <div className="flex h-[100dvh] flex-col bg-background text-foreground">
+      <TopNav />
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <RiArrowLeftLine aria-hidden className="size-4" />
-        </button>
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="truncate text-sm font-medium text-foreground">{run.title ?? run.id}</span>
           <StatusPill value={currentStatus} />
@@ -193,8 +242,19 @@ export function RunChat({ run }: RunChatProps) {
             </div>
           )}
 
-          {showThinking ? (
-            <ThinkingIndicator trace={trace} />
+          {showThinking ? <ThinkingIndicator trace={trace} /> : null}
+
+          {(hasPanelOutputs || hasJudgeOutput || !isRunActive) && !showThinking ? (
+            <OutputAccordions
+              trace={trace}
+              finalText={finalText}
+              judgeText={judgeText}
+              expandedAccordions={expandedAccordions}
+              onToggle={toggleAccordion}
+              onOpenPanel={openPanelDrawer}
+              onOpenJudge={openJudgeDrawer}
+              onOpenFinal={openFinalDrawer}
+            />
           ) : null}
 
           {showLiveOutput ? (
@@ -203,6 +263,7 @@ export function RunChat({ run }: RunChatProps) {
               content={finalText}
               error={trace.final.error || trace.synthesis.error}
               isStreaming={trace.final.status === "running"}
+              onOpenFull={openFinalDrawer}
             />
           ) : null}
 
@@ -218,12 +279,9 @@ export function RunChat({ run }: RunChatProps) {
 
       <div className="shrink-0 border-t border-border bg-background">
         <div className="mx-auto max-w-3xl px-4 py-3">
-          {sendError ? (
-            <p className="mb-2 text-sm text-destructive">{sendError}</p>
-          ) : null}
+          {sendError ? <p className="mb-2 text-sm text-destructive">{sendError}</p> : null}
           <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2">
             <textarea
-              ref={textareaRef}
               value={continueMessage}
               onChange={(event) => setContinueMessage(event.target.value)}
               onKeyDown={handleKeyDown}
@@ -236,7 +294,7 @@ export function RunChat({ run }: RunChatProps) {
               type="button"
               onClick={() => void handleContinue()}
               disabled={isRunActive || isSending || !continueMessage.trim()}
-              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <RiArrowUpLine aria-hidden className="size-4" />
             </button>
@@ -249,12 +307,20 @@ export function RunChat({ run }: RunChatProps) {
         </div>
       </div>
 
+      {drawer ? (
+        <OutputDrawer
+          title={drawer.title}
+          subtitle={drawer.subtitle}
+          status={drawer.status}
+          content={drawer.content}
+          error={drawer.error}
+          onClose={() => setDrawer(null)}
+        />
+      ) : null}
+
       {showDetails ? (
         <DetailsPanel
           run={run}
-          trace={trace}
-          finalText={finalText}
-          judgeText={judgeText}
           onClose={() => setShowDetails(false)}
         />
       ) : null}
@@ -267,11 +333,13 @@ function MessageBubble({
   content,
   error,
   isStreaming,
+  onOpenFull,
 }: {
   role: "user" | "assistant" | "system";
   content: string;
   error?: string;
   isStreaming?: boolean;
+  onOpenFull?: () => void;
 }) {
   const isUser = role === "user";
   const isSystem = role === "system";
@@ -299,12 +367,26 @@ function MessageBubble({
         {error ? (
           <p className="break-words text-destructive [overflow-wrap:anywhere]">{error}</p>
         ) : content ? (
-          <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-            {content}
-            {isStreaming ? (
-              <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-foreground/60 align-middle" />
+          <>
+            <div className="break-words [overflow-wrap:anywhere]">
+              {isUser ? (
+                <div className="whitespace-pre-wrap">{content}</div>
+              ) : (
+                <MarkdownRenderer content={content} />
+              )}
+              {isStreaming ? (
+                <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-foreground/60 align-middle" />
+              ) : null}
+            </div>
+            {onOpenFull && !isStreaming ? (
+              <button
+                onClick={onOpenFull}
+                className="mt-2 text-xs font-medium text-primary hover:text-primary/80"
+              >
+                View full output
+              </button>
             ) : null}
-          </div>
+          </>
         ) : null}
       </div>
     </div>
@@ -340,17 +422,208 @@ function currentPhaseLabel(trace: Trace): string {
   return "Thinking";
 }
 
-function DetailsPanel({
-  run,
-  trace,
-  finalText,
-  judgeText,
-  onClose,
-}: {
-  run: FusionRunDetail;
+type OutputAccordionsProps = {
   trace: Trace;
   finalText: string;
   judgeText: string;
+  expandedAccordions: Set<string>;
+  onToggle: (id: string) => void;
+  onOpenPanel: (panel: PanelTrace) => void;
+  onOpenJudge: () => void;
+  onOpenFinal: () => void;
+};
+
+function OutputAccordions({
+  trace,
+  finalText,
+  judgeText,
+  expandedAccordions,
+  onToggle,
+  onOpenPanel,
+  onOpenJudge,
+  onOpenFinal,
+}: OutputAccordionsProps) {
+  const panelStep = trace.panels.length > 0;
+  const judgeStep = judgeText.trim().length > 0 || trace.synthesis.status !== "queued";
+  const finalStep = finalText.trim().length > 0 || trace.final.status !== "queued";
+
+  let stepCount = 0;
+  if (panelStep) stepCount++;
+  if (judgeStep) stepCount++;
+  if (finalStep) stepCount++;
+
+  let currentStep = 0;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2.5">
+        <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+          SOURCES
+        </span>
+        <span className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {stepCount > 0 ? `Step 1/${stepCount}` : "Processing"}
+        </span>
+      </div>
+
+      {panelStep ? (
+        <>
+          {trace.panels.map((panel) => {
+            currentStep++;
+            const id = `panel-${panel.jobId}`;
+            const isExpanded = expandedAccordions.has(id);
+            const hasContent = panel.text.trim().length > 0;
+            return (
+              <AccordionRow
+                key={panel.jobId}
+                step={currentStep}
+                title={panel.modelId}
+                subtitle={[panel.adapter, panel.role].filter(Boolean).join(" · ") || "panel"}
+                status={panel.status}
+                isExpanded={isExpanded}
+                onToggle={() => onToggle(id)}
+                onOpenFull={() => onOpenPanel(panel)}
+              >
+                {panel.error ? (
+                  <p className="break-words text-sm text-destructive">{panel.error}</p>
+                ) : hasContent ? (
+                  <div className="max-h-48 overflow-hidden">
+                    <MarkdownRenderer content={panel.text} />
+                    <div className="pointer-events-none h-8 bg-gradient-to-t from-secondary to-transparent" />
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Waiting for model output.</p>
+                )}
+              </AccordionRow>
+            );
+          })}
+        </>
+      ) : null}
+
+      {judgeStep ? (
+        (() => {
+          currentStep++;
+          const id = "judge";
+          const isExpanded = expandedAccordions.has(id);
+          return (
+            <AccordionRow
+              step={currentStep}
+              title="Judge / Synthesis"
+              subtitle="Analysis from the final-output model"
+              status={trace.synthesis.status}
+              isExpanded={isExpanded}
+              onToggle={() => onToggle(id)}
+              onOpenFull={onOpenJudge}
+            >
+              {trace.synthesis.error ? (
+                <p className="break-words text-sm text-destructive">{trace.synthesis.error}</p>
+              ) : judgeText.trim() ? (
+                <JudgeContent text={judgeText} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Waiting for judge output.</p>
+              )}
+            </AccordionRow>
+          );
+        })()
+      ) : null}
+
+      {finalStep ? (
+        (() => {
+          currentStep++;
+          const id = "final";
+          const isExpanded = expandedAccordions.has(id);
+          return (
+            <AccordionRow
+              step={currentStep}
+              title="Final Output"
+              subtitle="Fused result"
+              status={trace.final.status}
+              isExpanded={isExpanded}
+              onToggle={() => onToggle(id)}
+              onOpenFull={onOpenFinal}
+            >
+              {trace.final.error || trace.synthesis.error ? (
+                <p className="break-words text-sm text-destructive">
+                  {trace.final.error || trace.synthesis.error}
+                </p>
+              ) : finalText.trim() ? (
+                <div className="max-h-48 overflow-hidden">
+                  <MarkdownRenderer content={finalText} />
+                  <div className="pointer-events-none h-8 bg-gradient-to-t from-secondary to-transparent" />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Waiting for final output.</p>
+              )}
+            </AccordionRow>
+          );
+        })()
+      ) : null}
+    </div>
+  );
+}
+
+function AccordionRow({
+  step,
+  title,
+  subtitle,
+  status,
+  isExpanded,
+  onToggle,
+  onOpenFull,
+  children,
+}: {
+  step: number;
+  title: string;
+  subtitle: string;
+  status: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onOpenFull: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-card transition-colors",
+        isExpanded && "border-foreground/10",
+      )}
+    >
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left"
+      >
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-md border border-border text-[10px] font-semibold text-muted-foreground">
+          {step}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-foreground">{title}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{subtitle}</p>
+        </div>
+        <StatusPill value={status} />
+        <RiArrowDownSLine
+          aria-hidden
+          className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-150", isExpanded && "rotate-180")}
+        />
+      </button>
+      {isExpanded ? (
+        <div className="border-t border-border px-3 py-2.5">
+          {children}
+          <button
+            onClick={onOpenFull}
+            className="mt-2 text-xs font-medium text-primary hover:text-primary/80"
+          >
+            Open full output →
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DetailsPanel({
+  run,
+  onClose,
+}: {
+  run: FusionRunDetail;
   onClose: () => void;
 }) {
   return (
@@ -364,7 +637,7 @@ function DetailsPanel({
             onClick={onClose}
             className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <RiCloseLine aria-hidden className="size-4" />
+            <RiErrorWarningLine aria-hidden className="size-4" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
@@ -389,51 +662,6 @@ function DetailsPanel({
                   <span className="break-words">{run.error}</span>
                 </div>
               ) : null}
-            </DetailSection>
-
-            <DetailSection title="Panel Outputs" icon={RiLayoutGridLine}>
-              {trace.panels.length ? (
-                <div className="flex flex-col gap-3">
-                  {trace.panels.map((panel) => (
-                    <div key={panel.jobId} className="rounded-lg border border-border p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">{panel.modelId}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {[panel.adapter, panel.role].filter(Boolean).join(" · ") || "panel"}
-                          </p>
-                        </div>
-                        <StatusPill value={panel.status} />
-                      </div>
-                      {panel.text ? (
-                        <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 text-xs text-foreground [overflow-wrap:anywhere]">
-                          {panel.text}
-                        </div>
-                      ) : panel.error ? (
-                        <p className="mt-2 break-words text-xs text-destructive">{panel.error}</p>
-                      ) : (
-                        <p className="mt-2 text-xs text-muted-foreground">Waiting for model output.</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyDetail text="No panel jobs yet." />
-              )}
-            </DetailSection>
-
-            <DetailSection title="Judge / Synthesis" icon={RiRobot2Line}>
-              <JudgeContent text={judgeText} error={trace.synthesis.error} />
-            </DetailSection>
-
-            <DetailSection title="Final Output" icon={RiFileList3Line}>
-              {finalText ? (
-                <div className="max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 text-xs text-foreground [overflow-wrap:anywhere]">
-                  {finalText}
-                </div>
-              ) : (
-                <EmptyDetail text="Final output appears after judge/synthesis completes." />
-              )}
             </DetailSection>
 
             <DetailSection title="Artifacts" icon={RiFileList3Line}>
@@ -521,7 +749,7 @@ function EmptyDetail({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
 }
 
-function JudgeContent({ text, error }: { text: string; error?: string }) {
+function JudgeContent({ text }: { text: string }) {
   const judge = parseJudge(text);
   if (judge) {
     return (
@@ -554,13 +782,8 @@ function JudgeContent({ text, error }: { text: string; error?: string }) {
       </div>
     );
   }
-  if (error) return <p className="break-words text-sm text-destructive">{error}</p>;
-  if (text) {
-    return (
-      <div className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 text-xs text-foreground [overflow-wrap:anywhere]">
-        {text}
-      </div>
-    );
+  if (text.trim()) {
+    return <MarkdownRenderer content={text} />;
   }
   return <EmptyDetail text="Judge/synthesis starts after panel jobs finish." />;
 }
