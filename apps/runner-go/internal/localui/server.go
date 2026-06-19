@@ -143,8 +143,8 @@ const indexHTML = `<!doctype html>
       --text: #f4f4f5;
       --muted: #71717a;
       --soft: #a1a1aa;
-      --accent: #7c3aed;
-      --accent-2: #a78bfa;
+      --accent: #67e8f9;
+      --accent-2: #34d399;
       --danger: #fca5a5;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -234,7 +234,7 @@ const indexHTML = `<!doctype html>
 <body>
   <div class="app">
     <aside class="rail">
-      <div class="brand"><span class="mark">F</span><span>Open Fusion</span></div>
+      <div class="brand"><span class="mark">F</span><span>Fusion Harness</span></div>
       <div class="rail-main"><button class="rail-button" onclick="location.reload()">New Fusion</button></div>
       <div class="rail-footer"><div id="agentCount">Detecting local agents...</div><div>Go runner · local CLI sessions</div></div>
     </aside>
@@ -243,16 +243,15 @@ const indexHTML = `<!doctype html>
       <section class="stage">
         <div class="wrap">
           <div class="headline">
-            <h1>Model Fusion</h1>
-            <p>Run local agent models side by side, judge the result, then write the final answer.</p>
+            <h1>Local Agent Fusion</h1>
+            <p>Prompt → native panel runs → judge / synthesis → final output.</p>
           </div>
           <div class="composer">
             <div class="toolbar">
               <div class="row" id="modes"></div>
               <div class="row" id="chips"></div>
               <div class="row">
-                <span class="micro-label">Judge</span><button class="ghost" id="judgeButton"></button>
-                <span class="micro-label" style="margin-left:8px">Final</span><button class="ghost" id="finalButton"></button>
+                <span class="micro-label">Judge / synthesis</span><button class="ghost" id="judgeButton"></button>
               </div>
             </div>
             <textarea id="prompt" placeholder="Ask anything..."></textarea>
@@ -268,7 +267,7 @@ const indexHTML = `<!doctype html>
           </div>
           <div id="output" class="output">
             <div class="panel"><h2>Trace</h2><div id="trace"></div></div>
-            <div class="panel"><h2>Final Answer</h2><pre id="finalAnswer"></pre></div>
+            <div class="panel"><h2>Final Output</h2><pre id="finalAnswer"></pre></div>
           </div>
         </div>
       </section>
@@ -285,7 +284,7 @@ const indexHTML = `<!doctype html>
     </div>
   </div>
   <script>
-    const state = { models: [], tools: [], mode: 'required', analysis: [], judge: '', final: '', target: 'analysis', custom: [] };
+    const state = { models: [], tools: [], mode: 'required', analysis: [], judge: '', target: 'analysis', custom: [] };
     const modes = ['auto', 'required', 'direct'];
     const adapters = { opencode: 'OpenCode', codex: 'Codex' };
     const $ = (id) => document.getElementById(id);
@@ -299,11 +298,10 @@ const indexHTML = `<!doctype html>
     }
     function byId(id) { return allModels().find((m) => m.id === id); }
     function defaultPick() {
-      const available = allModels().filter((m) => m.model !== 'default' && m.availability !== 'unavailable');
+      const available = allModels().filter((m) => m.availability !== 'unavailable');
       state.analysis = available.slice(0, Math.min(3, available.length)).map((m) => m.id);
       const codex = available.find((m) => m.adapter === 'codex');
       state.judge = (codex || available[0] || {}).id || '';
-      state.final = (codex || available[0] || {}).id || '';
     }
     function render() {
       $('modes').innerHTML = modes.map((mode) => '<button class="pill ' + (state.mode === mode ? 'active' : '') + '" data-mode="' + mode + '">' + mode + '</button>').join('');
@@ -315,24 +313,21 @@ const indexHTML = `<!doctype html>
       $('chips').querySelectorAll('[data-remove]').forEach((button) => button.onclick = () => { if (state.analysis.length > 1) state.analysis = state.analysis.filter((id) => id !== button.dataset.remove); render(); });
       $('addModel').onclick = () => openPicker('analysis');
       const judge = byId(state.judge);
-      const final = byId(state.final);
       $('judgeButton').textContent = judge ? short(judge) : 'Auto';
-      $('finalButton').textContent = final ? short(final) : 'Auto';
       $('judgeButton').onclick = () => openPicker('judge');
-      $('finalButton').onclick = () => openPicker('final');
       $('selectedSummary').textContent = state.analysis.length + ' analysis · ' + (judge ? short(judge) : 'auto') + ' judge';
     }
     function openPicker(target) {
       state.target = target;
-      $('pickerTitle').textContent = target === 'analysis' ? 'Panel models' : target === 'judge' ? 'Judge model' : 'Final writer model';
-      $('pickerHelp').textContent = target === 'analysis' ? 'Choose the models that answer independently.' : 'Choose one model for this stage.';
+      $('pickerTitle').textContent = target === 'analysis' ? 'Panel models' : 'Judge / synthesis model';
+      $('pickerHelp').textContent = target === 'analysis' ? 'Choose the models that answer independently.' : 'Choose one model to compare panel outputs and write the final output.';
       $('modal').classList.add('visible');
       $('modelSearch').value = '';
       renderPicker();
       $('modelSearch').focus();
     }
     function closePicker() { $('modal').classList.remove('visible'); }
-    function selectedIds() { return state.target === 'analysis' ? state.analysis : [state.target === 'judge' ? state.judge : state.final].filter(Boolean); }
+    function selectedIds() { return state.target === 'analysis' ? state.analysis : [state.judge].filter(Boolean); }
     function renderPicker() {
       const q = $('modelSearch').value.trim().toLowerCase();
       const selected = new Set(selectedIds());
@@ -351,8 +346,6 @@ const indexHTML = `<!doctype html>
         renderPicker();
       } else if (state.target === 'judge') {
         state.judge = id; closePicker();
-      } else {
-        state.final = id; closePicker();
       }
       render();
     }
@@ -373,7 +366,7 @@ const indexHTML = `<!doctype html>
       $('runButton').disabled = true;
       $('runButton').textContent = '…';
       $('output').classList.add('visible');
-      $('trace').innerHTML = '<div class="trace-item"><div class="trace-title"><span>Running fusion pipeline</span><span>queued</span></div><div class="trace-meta">Panel calls run first, then judge, then final writer.</div></div>';
+      $('trace').innerHTML = '<div class="trace-item"><div class="trace-title"><span>Running fusion pipeline</span><span>queued</span></div><div class="trace-meta">Panel calls run first, then one judge / synthesis call writes the final output.</div></div>';
       $('finalAnswer').textContent = '';
       try {
         const response = await fetch('/api/fuse', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
@@ -382,8 +375,7 @@ const indexHTML = `<!doctype html>
           mode: state.mode,
           permissionProfile: $('permission').value,
           analysisModels: state.analysis,
-          judgeModel: state.judge,
-          finalModel: state.final
+          judgeModel: state.judge
         })});
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || 'Fusion request failed');
@@ -401,7 +393,7 @@ const indexHTML = `<!doctype html>
       return '<div class="trace-item"><div class="trace-title"><span>' + output.role + ' · ' + output.modelId + '</span><span>' + output.status + '</span></div><div class="trace-meta">' + output.adapter + ' · ' + (output.latencyMs || 0) + 'ms</div>' + (output.error ? '<div class="trace-error">' + output.error + '</div>' : '') + '</div>';
     }
     function renderResult(result) {
-      $('trace').innerHTML = [...(result.panel || []), result.judge, result.final].map(traceItem).join('');
+      $('trace').innerHTML = [...(result.panel || []), result.judge].map(traceItem).join('');
       $('finalAnswer').textContent = result.finalAnswer || result.error || 'No final answer returned.';
     }
     $('closePicker').onclick = closePicker;

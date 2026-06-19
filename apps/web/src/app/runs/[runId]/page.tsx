@@ -32,7 +32,7 @@ export default async function RunDetailPage({ params }: RunPageProps) {
 
   return (
     <div className="flex min-w-0 flex-col gap-6 overflow-hidden p-6">
-      <PageHeader title={run.data.id} description="Fusion trace, panel outputs, judge/final artifacts, and audit history." />
+      <PageHeader title={run.data.id} description="Fusion trace, panel outputs, judge/synthesis result, and audit history." />
       <DataNotice source={run.source} error={run.error} />
       <div className="grid gap-4 md:grid-cols-4">
         <Metric label="Status" value={run.data.status} detail={run.data.error} />
@@ -76,7 +76,7 @@ export default async function RunDetailPage({ params }: RunPageProps) {
               ))}
             </div>
           ) : (
-            <EmptyState title="No artifacts yet" description="Prompt, panel, judge, final, patch, and log artifacts are stored in R2." />
+            <EmptyState title="No artifacts yet" description="Prompt, panel, judge/synthesis, patch, and log artifacts are stored in R2." />
           )}
         </Section>
       </div>

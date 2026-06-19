@@ -76,6 +76,8 @@ export function RunEventStream({ runId }: RunEventStreamProps) {
   }, [runId]);
 
   const trace = useMemo(() => buildTrace(events), [events]);
+  const finalText = trace.final.text || extractFinalOutput(trace.synthesis.text);
+  const judgeText = extractJudgeAnalysisText(trace.synthesis.text);
 
   return (
     <Section
@@ -91,23 +93,23 @@ export function RunEventStream({ runId }: RunEventStreamProps) {
         </span>
       }
     >
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.42fr)]">
-        <div className="min-w-0 rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.44fr)]">
+        <div className="min-w-0 rounded-md border border-white/10 bg-[#0b0d10] text-zinc-100">
+          <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
             <div>
               <h3 className="text-sm font-semibold">Panel</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Independent model runs complete before judge starts.</p>
+              <p className="mt-1 text-xs text-zinc-500">Independent native agent runs.</p>
             </div>
             <StatusPill value={panelSummaryStatus(trace.panels)} />
           </div>
           {trace.panels.length ? (
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-white/10">
               {trace.panels.map((panel) => (
                 <article key={panel.jobId} className="min-w-0 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{panel.modelId}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-zinc-500">
                         {[panel.adapter, panel.role].filter(Boolean).join(" / ") || "panel"}
                       </p>
                     </div>
@@ -118,23 +120,24 @@ export function RunEventStream({ runId }: RunEventStreamProps) {
               ))}
             </div>
           ) : (
-            <p className="px-4 py-8 text-center text-sm text-muted-foreground">Waiting for panel jobs.</p>
+            <p className="px-4 py-8 text-center text-sm text-zinc-500">Waiting for panel jobs.</p>
           )}
         </div>
 
-        <div className="min-w-0 space-y-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <PhaseCard
-            title="Judge"
-            description="Compares successful panel answers and flags consensus, gaps, and risks."
-            phase={trace.judge}
-            empty="Judge starts after panel jobs finish."
-            structured
+            title="Final Output"
+            description="Same model as judge / synthesis."
+            phase={{ ...trace.synthesis, text: finalText, error: trace.synthesis.error || trace.final.error }}
+            empty="Final output appears after judge / synthesis completes."
+            large
           />
           <PhaseCard
-            title="Final"
-            description="Uses panel evidence and judge analysis to write the response."
-            phase={trace.final}
-            empty="Final starts after judge completes or degrades."
+            title="Judge / Synthesis"
+            description="Analysis from the final-output model."
+            phase={{ ...trace.synthesis, text: judgeText }}
+            empty="Judge / synthesis starts after panel jobs finish."
+            structured
           />
         </div>
       </div>
@@ -144,7 +147,7 @@ export function RunEventStream({ runId }: RunEventStreamProps) {
 
 function buildTrace(events: RunEvent[]) {
   const panels = new Map<string, PanelTrace>();
-  const judge: PhaseTrace = { status: "queued", text: "" };
+  const synthesis: PhaseTrace = { status: "queued", text: "" };
   const final: PhaseTrace = { status: "queued", text: "" };
 
   for (const event of events) {
@@ -176,20 +179,20 @@ function buildTrace(events: RunEvent[]) {
       panels.set(jobId, { ...existing, status: "failed", error: stringData(event, "error") });
     }
     if (event.type === "judge.started") {
-      judge.status = "running";
+      synthesis.status = "running";
     }
     if (event.type === "judge.output.delta") {
-      judge.status = "running";
-      judge.text = appendText(judge.text, eventText(event));
+      synthesis.status = "running";
+      synthesis.text = appendText(synthesis.text, eventText(event));
     }
     if (event.type === "judge.completed") {
-      judge.status = "completed";
-      judge.text = judge.text || eventText(event);
+      synthesis.status = "completed";
+      synthesis.text = synthesis.text || eventText(event);
     }
     if (event.type === "judge.failed") {
-      judge.status = "failed";
-      judge.error = stringData(event, "error");
-      judge.text = judge.text || eventText(event);
+      synthesis.status = "failed";
+      synthesis.error = stringData(event, "error");
+      synthesis.text = synthesis.text || eventText(event);
     }
     if (event.type === "final.started") {
       final.status = "running";
@@ -210,7 +213,7 @@ function buildTrace(events: RunEvent[]) {
 
   return {
     panels: [...panels.values()],
-    judge,
+    synthesis,
     final,
   };
 }
@@ -221,26 +224,28 @@ function PhaseCard({
   phase,
   empty,
   structured,
+  large,
 }: {
   title: string;
   description: string;
   phase: PhaseTrace;
   empty: string;
   structured?: boolean;
+  large?: boolean;
 }) {
   return (
-    <section className="min-w-0 rounded-lg border border-border bg-card">
-      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+    <section className="min-w-0 rounded-md border border-white/10 bg-[#0b0d10] text-zinc-100">
+      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold">{title}</h3>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">{description}</p>
         </div>
         <StatusPill value={phase.status} />
       </div>
       {structured ? (
         <JudgeBody text={phase.text} error={phase.error} empty={empty} />
       ) : (
-        <TraceBody text={phase.text} error={phase.error} empty={empty} large />
+        <TraceBody text={phase.text} error={phase.error} empty={empty} large={large} />
       )}
     </section>
   );
@@ -250,7 +255,7 @@ function JudgeBody({ text, error, empty }: { text: string; error?: string; empty
   const judge = parseJudge(text);
   if (judge) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="flex flex-col gap-4 p-4">
         <JudgeList title="Consensus" items={judge.consensus} />
         <JudgeList
           title="Contradictions"
@@ -259,10 +264,10 @@ function JudgeBody({ text, error, empty }: { text: string; error?: string; empty
         <JudgeList title="Missing Coverage" items={judge.missing_coverage} />
         <JudgeList title="Unique Insights" items={judge.unique_insights.map((item) => `${item.model}: ${item.insight}`)} />
         <JudgeList title="Risks" items={judge.risks.map((risk) => `${risk.severity}: ${risk.risk} - ${risk.mitigation}`)} />
-        {judge.recommended_final_strategy ? (
+        {judge.synthesis_strategy || judge.recommended_final_strategy ? (
           <div>
-            <p className="text-xs font-semibold uppercase text-muted-foreground">Final Strategy</p>
-            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{judge.recommended_final_strategy}</p>
+            <p className="text-xs font-semibold uppercase text-zinc-500">Synthesis Strategy</p>
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">{judge.synthesis_strategy || judge.recommended_final_strategy}</p>
           </div>
         ) : null}
       </div>
@@ -275,8 +280,8 @@ function JudgeList({ title, items }: { title: string; items: string[] }) {
   if (!items.length) return null;
   return (
     <div>
-      <p className="text-xs font-semibold uppercase text-muted-foreground">{title}</p>
-      <ul className="mt-2 space-y-2 text-sm leading-6 text-foreground">
+      <p className="text-xs font-semibold uppercase text-zinc-500">{title}</p>
+      <ul className="mt-2 flex flex-col gap-2 text-sm leading-6 text-zinc-200">
         {items.map((item, index) => (
           <li key={`${title}-${index}`} className="break-words">
             {item}
@@ -293,19 +298,19 @@ function TraceBody({ text, error, empty, large }: { text: string; error?: string
       <div
         className={cn(
           "overflow-auto p-4 text-sm leading-6 text-foreground",
-          large ? "max-h-[32rem]" : "max-h-80",
+          large ? "max-h-[34rem]" : "max-h-80",
         )}
       >
-        <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{text}</div>
+        <div className="whitespace-pre-wrap break-words text-zinc-200 [overflow-wrap:anywhere]">{text}</div>
       </div>
     );
   }
 
   if (error) {
-    return <p className="break-words px-4 py-6 text-sm leading-6 text-destructive [overflow-wrap:anywhere]">{error}</p>;
+    return <p className="break-words px-4 py-6 text-sm leading-6 text-red-300 [overflow-wrap:anywhere]">{error}</p>;
   }
 
-  return <p className="px-4 py-8 text-center text-sm text-muted-foreground">{empty}</p>;
+  return <p className="px-4 py-8 text-center text-sm text-zinc-500">{empty}</p>;
 }
 
 function fallbackPanel(event: RunEvent): PanelTrace {
@@ -355,17 +360,19 @@ function parseJudge(text: string):
       missing_coverage: string[];
       unique_insights: Array<{ model: string; insight: string }>;
       risks: Array<{ risk: string; severity: string; mitigation: string }>;
+      synthesis_strategy: string;
       recommended_final_strategy: string;
     }
   | undefined {
   if (!text.trim()) return undefined;
   try {
-    const parsed = JSON.parse(text) as {
+    const parsed = JSON.parse(extractJudgeAnalysisText(text)) as {
       consensus?: unknown;
       contradictions?: unknown;
       missing_coverage?: unknown;
       unique_insights?: unknown;
       risks?: unknown;
+      synthesis_strategy?: unknown;
       recommended_final_strategy?: unknown;
     };
     return {
@@ -391,6 +398,7 @@ function parseJudge(text: string):
             mitigation: stringFromRecord(risk, "mitigation"),
           }))
         : [],
+      synthesis_strategy: typeof parsed.synthesis_strategy === "string" ? parsed.synthesis_strategy : "",
       recommended_final_strategy:
         typeof parsed.recommended_final_strategy === "string" ? parsed.recommended_final_strategy : "",
     };
@@ -407,6 +415,23 @@ function stringFromRecord(value: unknown, key: string) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "";
   const candidate = (value as Record<string, unknown>)[key];
   return typeof candidate === "string" ? candidate : "";
+}
+
+function extractFinalOutput(text: string) {
+  const marker = "FINAL_OUTPUT:";
+  const trimmed = text.trim();
+  const markerIndex = trimmed.lastIndexOf(marker);
+  if (markerIndex < 0) return trimmed;
+  return trimmed.slice(markerIndex + marker.length).trim();
+}
+
+function extractJudgeAnalysisText(text: string) {
+  const analysisMarker = "JUDGE_ANALYSIS_JSON:";
+  const finalMarker = "FINAL_OUTPUT:";
+  const trimmed = text.trim();
+  const withAnalysis = trimmed.includes(analysisMarker) ? trimmed.slice(trimmed.indexOf(analysisMarker) + analysisMarker.length) : trimmed;
+  const withoutFinal = withAnalysis.includes(finalMarker) ? withAnalysis.slice(0, withAnalysis.indexOf(finalMarker)) : withAnalysis;
+  return withoutFinal.trim();
 }
 
 function parseSocketMessage(data: string) {
