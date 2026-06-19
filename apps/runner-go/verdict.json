@@ -1,0 +1,110 @@
+{
+  "consensus": [
+    "React learning must start with JavaScript fundamentals (ES6+, closures, async/await, array methods) before touching React itself.",
+    "Core React progression: JSX → components → props → useState → useEffect → composition → custom hooks.",
+    "Every phase must be anchored to a concrete hands-on project — not passive tutorial consumption.",
+    "Hook rules (no conditional calls, no loops) and stale closures in useEffect are the two most critical early pitfalls to flag.",
+    "TypeScript should be introduced after core React concepts are comfortable, not simultaneously — typically after 3-4 phases.",
+    "CRA (Create React App) is deprecated; Vite is the recommended bootstrap tool.",
+    "Official React docs (react.dev) are the canonical primary resource; all paths should anchor there.",
+    "State management libraries (Redux, Zustand, etc.) should be deferred until the app demonstrates a genuine need beyond useState/Context/useReducer.",
+    "The path should end with testing (Vitest + React Testing Library), deployment, and a production capstone (Next.js or similar).",
+    "A portfolio of 4-5 original projects is more valuable than any certificate or course completion badge."
+  ],
+  "contradictions": [
+    {
+      "topic": "When to introduce TypeScript",
+      "models": ["Kimi-K2.7-Code", "Qwen3.6-27B", "MiniMax-M3", "Qwen3.6-35B-A3B"],
+      "details": "Kimi-K2.7 and Qwen3.6-27B say introduce TypeScript after Phase 3-4 (M4 or Phase 7). Qwen3.6-35B-A3B says after Phase 3 (i.e., earlier). MiniMax-M3 critiques scope but doesn't specify a phase. The core disagreement is whether 'after M4' (later, once React patterns are solid) or 'after Phase 3' (sooner, before building complex apps) is optimal.",
+      "recommended_resolution": "Adopt 'soft introduction after Phase 3, full adoption by Phase 7' — use .tsx for new small projects once hooks are comfortable, but don't retrofit existing work. This reconciles both positions: it's not a hard gate, but TypeScript is in play before complex apps are built."
+    },
+    {
+      "topic": "Primary state management recommendation",
+      "models": ["Kimi-K2.7-Code", "Qwen3.6-27B", "Qwen3.6-35B-A3B"],
+      "details": "Kimi-K2.7 suggests delaying library choice until the app demonstrates a state-management problem. Qwen3.6-27B suggests using Context + useReducer in Phase 3 and defines Phase 5 as 'State management (Zustand or Redux Toolkit)'. Qwen3.6-35B-A3B lists Zustand/Redux Toolkit as Phase 5 but adds 'most apps don't need a global store'. The contradiction is whether to set a hard Phase 5 for introducing a library or keep it conditional.",
+      "recommended_resolution": "Keep state management library introduction conditional (Kimi-K2.7's approach). Phase 5 should be labeled 'Optional: State Management Libraries' with a litmus test: 'if you have 3+ deeply nested components sharing state and Context causes re-render cascades, then evaluate Zustand.' This avoids premature adoption."
+    },
+    {
+      "topic": "Timeline estimates",
+      "models": ["Qwen3.6-27B", "Qwen3.6-35B-A3B"],
+      "details": "Qwen3.6-27B estimates 8-14 weeks, Qwen3.6-35B-A3B estimates 8-12 weeks. The difference is 2 weeks on the upper bound. This is minor but indicates different assumptions about depth vs velocity.",
+      "recommended_resolution": "Use 8-14 weeks as the more conservative (and therefore safer) estimate. The 8-week lower bound assumes full-time-ish dedication; 14 weeks accommodates part-time learners."
+    },
+    {
+      "topic": "Next.js App Router introduction timing",
+      "models": ["Kimi-K2.7-Code", "Qwen3.6-27B"],
+      "details": "Kimi-K2.7 flags Next.js App Router as volatile/stabilizing and recommends understanding the old client-first model before jumping in. Qwen3.6-27B puts Next.js in Phase 8 as the capstone without that caveat. MiniMax-M3 notes 'a path older than ~12 months may be stale' as a risk. The contradiction is whether to warn learners about App Router churn or simply use it.",
+      "recommended_resolution": "Include the Kimi-K2.7 caveat explicitly: 'The Next.js App Router mental model (server/client boundary, caching semantics) is still stabilizing. Before Phase 8, ensure you can debug which code runs on the server vs client — this is the #1 source of confusion.'"
+    }
+  ],
+  "missing_coverage": [
+    "No model addresses React Native or mobile development as a sub-path — all paths are web-only. 'React' can mean React Native for mobile teams, and this should be flagged as a fork point.",
+    "No model provides concrete time-boxing per phase (e.g., 'Phase 2: 15-20 hours'). Qwen3.6-27B gives total timeline but not per-phase breakdown.",
+    "Accessibility (a11y) is mentioned by Qwen3.6-35B-A3B as a low-risk note and by MiniMax-M3 in the rubric, but no model provides concrete a11y checkpoints or exercises (screen reader testing, keyboard navigation, ARIA audit).",
+    "Security (XSS/CSRF) is only mentioned by MiniMax-M3 in the rubric; no other model flags it. For a production path, this is a gap.",
+    "No model addresses AI-assisted learning as a double-edged sword — MiniMax-M3 mentions 'over-reliance on AI codegen' in its caveats section but no other model explores it as a pedagogical risk or tool.",
+    "GraphQL is mentioned only once (Qwen3.6-27B says 'avoid GraphQL until REST is solid') but REST-to-GraphQL migration path is not in any model's progression.",
+    "No model provides a 'what to do when stuck' strategy — debugging workflow, how to read error messages, React DevTools usage, or community resources (Discord, Stack Overflow).",
+    "CSS-in-JS vs Tailwind vs CSS Modules — Qwen3.6-27B says 'pick one', but no model compares the tradeoffs or gives a decision framework.",
+    "Backend integration depth — all models assume a frontend-first path. No model discusses how a full-stack learner should sequence backend (Node/Express, DB) alongside React."
+  ],
+  "unique_insights": [
+    {
+      "model": "Kimi-K2.7-Code",
+      "insight": "Frames React learning as an architectural progression map with a 'retain the core model' thesis: unidirectional, reactive component tree that reconciles declarative UI descriptions. This mental-model-first framing is unique and correct — it prevents learners from treating React as a black-box framework."
+    },
+    {
+      "model": "Kimi-K2.7-Code",
+      "insight": "Provides concrete self-assessment heuristics per phase ('Am I ready for the next phase?') including: explain every useEffect dependency, refactor a class-ish component into idiomatic hooks, trace a state change through the component tree, identify which parts run on server vs client in Next.js."
+    },
+    {
+      "model": "MiniMax-M3",
+      "insight": "Defines 'audience gate' as the first evaluation criterion — the path must ask/assume JS/HTML/CSS proficiency, TypeScript comfort, and prior framework exposure before proceeding. This prevents one-size-fits-all answers that fail learners with different backgrounds."
+    },
+    {
+      "model": "MiniMax-M3",
+      "insight": "Explicitly calls for a 'code review test' as a validation gate: submit one project to a human reviewer or community and pass without major rewrites. This is the strongest quality-assurance mechanism proposed and no other model includes it."
+    },
+    {
+      "model": "Qwen3.6-27B",
+      "insight": "Provides the most granular and phase-specific project ladder with concrete technologies per phase (React Query in Phase 4, Tailwind/CSS Modules in Phase 5, Error Boundaries and Portals in Phase 6, Prisma + PostgreSQL in Phase 8). This is the most actionable 'build this' mapping."
+    },
+    {
+      "model": "Qwen3.6-35B-A3B",
+      "insight": "The only model to provide concrete self-assessment questions that test understanding rather than recall: 'explain prop drilling vs context without looking', 'build a search with debounced API calls using only useState/useEffect', 'explain useMemo vs useCallback with a case where each is actually necessary'. These are directly usable as phase-exit exams."
+    },
+    {
+      "model": "Kimi-K2.7-Code",
+      "insight": "Identifies 'useEffect overuse for data fetching' as a learning stepping-stone, not a production default — and explicitly recommends React Query/SWR or Server Components as the modern replacement. This is a critical modernization signal that other models touch but don't emphasize as strongly."
+    }
+  ],
+  "risks": [
+    {
+      "risk": "The panel produced a React learning path for an unknown original request. If the original user had a specific constraint (e.g., 'I have 2 weeks and know Vue already', 'I'm building a React Native app'), this path is overfit for a web-only, 8-14 week beginner.",
+      "severity": "high",
+      "mitigation": "The final response must open with 2-3 clarifying questions OR explicitly state assumptions (background: JS-competent beginner, target: web SPA → full-stack, timeline: 8-14 weeks)."
+    },
+    {
+      "risk": "Next.js App Router churn risk is under-weighted by Qwen3.6-27B and Qwen3.6-35B-A3B. If the path recommends a specific Next.js version and the API changes within 6 months, the capstone becomes a debugging nightmare.",
+      "severity": "medium",
+      "mitigation": "Pin to Next.js 14+ (stable App Router) and link to the official migration guide. Warn that 15+ may introduce further breaking changes and recommend checking release notes before the capstone."
+    },
+    {
+      "risk": "All models assume functional-components-only. While correct, this creates a gap when learners encounter class components in legacy codebases or older tutorials. Zero exposure to class component syntax means they can't read/refactor existing code.",
+      "severity": "medium",
+      "mitigation": "Add a brief 'Legacy Awareness' sidebar: show one class component with lifecycle methods, explain how it maps to hooks, and state that this is for reading legacy code only — never for new projects."
+    },
+    {
+      "risk": "The consensus on 'defer state management libraries' may lead learners to over-use Context API and cause re-render performance issues. Context is not a state management tool — it's a dependency injection mechanism.",
+      "severity": "low",
+      "mitigation": "Explicitly distinguish: 'Context is for dependency injection (theme, locale, auth user). For shared mutable state that changes frequently, use useReducer + lift state, or evaluate an external store like Zustand.'"
+    },
+    {
+      "risk": "No model provides a concrete debugging workflow or React DevTools tutorial. Learners will hit errors and not know how to self-diagnose. This is the #1 dropout point.",
+      "severity": "high",
+      "mitigation": "Add a Phase 2.5 or interleaved module: 'Debugging React' covering React DevTools (Components tab, Profiler), reading stack traces, strict mode double-mounting, and common error messages (e.g., 'Rendered fewer hooks than expected')."
+    }
+  ],
+  "confidence": 0.82,
+  "recommended_final_strategy": "The panel strongly converges on a project-driven, phase-gated path from JS fundamentals through React hooks to Next.js deployment. There are no fatal contradictions — only timing disagreements (TypeScript, state libraries, Next.js) that can be resolved with conditional gates. The final response should: (1) Open with explicit learner-background assumptions or 2-3 clarifying questions. (2) Present the architectural progression map from Kimi-K2.7 as the skeleton. (3) Layer Qwen3.6-27B's concrete project-per-phase mapping onto it. (4) Use Qwen3.6-35B-A3B's self-assessment questions as phase-exit exams. (5) Inject MiniMax-M3's code-review-gate and audience-gate criteria as quality checks. (6) Flag CRA as deprecated, Vite as the default, and React.dev as canonical. (7) Include a 'Legacy Awareness' sidebar for class components and a 'Debugging React' interleaved module to cover the #1 dropout point. (8) Explicitly warn about Next.js App Router churn and recommend pinning to 14+. (9) Add an a11y and security checklist to the production phase. Do not recommend specific state management libraries — keep that conditional. Avoid link dumps; focus on the project ladder."
+}

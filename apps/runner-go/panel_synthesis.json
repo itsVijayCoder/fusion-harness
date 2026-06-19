@@ -1,0 +1,120 @@
+{
+  "consensus": [
+    "Components, props, and state form the foundational 'core React' that must be mastered before advanced topics",
+    "Hooks-first approach: useState, useEffect, custom hooks should precede state management libraries like Redux/Zustand",
+    "Hands-on project building (not passive tutorial consumption) is essential at every phase",
+    "Premature adoption of Redux, Next.js, or complex state libraries before core concepts is a high-risk anti-pattern",
+    "TypeScript should be introduced at an intermediate stage (not day one, not never) — typically after core React is comfortable",
+    "Next.js App Router and Server Components represent the modern production target but require understanding of client-first React first",
+    "Final deliverable should be a deployed, production-quality app (likely Next.js-based)",
+    "Create React App (CRA) is deprecated and should be explicitly avoided; Vite is the recommended replacement",
+    "Stale closures in useEffect and hook rules violations are the most common learner pitfalls",
+    "Testing should be introduced but not at the expense of core concept mastery"
+  ],
+  "contradictions": [
+    {
+      "topic": "TypeScript introduction timing",
+      "models": [
+        "Kimi-K2.7-Code",
+        "Qwen3.6-27B",
+        "Qwen3.6-35B-A3B",
+        "MiniMax-M3"
+      ],
+      "details": "Kimi-K2.7 recommends TypeScript after milestone M4 (mid-path). Qwen3.6-27B recommends Phase 7 (late, week ~8-10). Qwen3.6-35B-A3B recommends 'after phase 3' (early-mid, ~week 5-6). MiniMax-M3 treats TypeScript comfort as a prerequisite gate question rather than a fixed insertion point. The spread ranges from 'early prerequisite' to 'almost at the end.'",
+      "recommended_resolution": "Offer a conditional path: learners with prior TypeScript experience should use TS from day one; learners new to both JS and React should wait until core hooks patterns are internalized (~week 5-6, aligning with Qwen3.6-35B-A3B). Do not delay past the mid-point as Qwen3.6-27B's Phase 7 is too late."
+    },
+    {
+      "topic": "Redux/Zustand placement",
+      "models": [
+        "Kimi-K2.7-Code",
+        "Qwen3.6-35B-A3B",
+        "Qwen3.6-27B"
+      ],
+      "details": "Kimi-K2.7 explicitly delays any state library choice until 'the app actually demonstrates a state-management problem.' Qwen3.6-35B-A3B places Zustand/Redux Toolkit at Phase 5 (mid-path). Qwen3.6-27B says 'defer Redux until after Phase 5.' There's disagreement on whether to actively plan a phase for it or to introduce only on demonstrated need.",
+      "recommended_resolution": "Adopt Kimi-K2.7's 'just-in-time' approach: teach Context API and useReducer thoroughly, then introduce external state management only when a project demonstrably suffers from prop drilling or performance issues. No dedicated 'state management phase' unless the learner needs it."
+    },
+    {
+      "topic": "Overall timeline and scope",
+      "models": [
+        "Qwen3.6-27B",
+        "Qwen3.6-35B-A3B",
+        "MiniMax-M3"
+      ],
+      "details": "Qwen3.6-27B estimates 8-14 weeks at ~10 hrs/week. Qwen3.6-35B-A3B says 8-12 weeks minimum. MiniMax-M3 refuses to give a one-size-fits-all timeline and insists on parameterizing by background/goal/target-flavor. Kimi-K2.7 does not provide a time estimate.",
+      "recommended_resolution": "Provide a parameterized timeline: fast track (experienced JS dev, 6-8 weeks), standard (some JS, 10-14 weeks), beginner (new to JS, 16-20 weeks). Avoid a single number."
+    }
+  ],
+  "missing_coverage": [
+    "Accessibility (a11y) — mentioned only tangentially by MiniMax-M3 and Qwen3.6-35B-A3B; no concrete a11y learning modules or checklist",
+    "Security fundamentals (XSS, CSRF, input sanitization) — only MiniMax-M3 flags this gap; others ignore it entirely",
+    "Mobile/React Native fork of the path — all models assume web React; MiniMax-M3 notes the ambiguity but no panelist provides a mobile-specific path",
+    "CI/CD and DevOps integration — building is mentioned but automated deployment, environment variables, staging vs. production workflows are absent",
+    "Code review / feedback loop mechanisms — MiniMax-M3 advocates human review but no model provides a concrete process (code review checklist, pair programming, mentorship matching)",
+    "Debugging strategies and DevTools — React DevTools, browser Profiler, network tab, source maps; no model addresses how to teach debugging React apps",
+    "Backend integration depth (API design, REST vs GraphQL, auth patterns beyond Clerk/NextAuth mentions) — treated as incidental rather than a first-class skill",
+    "Package management and dependency hygiene (npm vs yarn vs pnpm, audit, lockfile integrity)",
+    "Performance monitoring in production (Lighthouse, Web Vitals, bundle analysis) beyond just 'profiling'",
+    "Monorepo tooling (Turborepo, Nx) for learners scaling beyond single-app projects",
+    "CSS architecture at scale (CSS-in-JS tradeoffs, design tokens, theming) — styling is mentioned but not structured"
+  ],
+  "unique_insights": [
+    {
+      "model": "Kimi-K2.7-Code",
+      "insight": "Frames React learning as an architectural progression map (component mechanics → state flow → ecosystem → production) rather than a flat topic list. Provides concrete anti-patterns to flag (derived state in useState, useEffect driving UI, over-reliance on forwardRef)."
+    },
+    {
+      "model": "Kimi-K2.7-Code",
+      "insight": "The heuristic 'Am I ready for the next phase?' checklist — e.g., 'explain why every useEffect dependency is present' — is uniquely actionable and phase-gated."
+    },
+    {
+      "model": "MiniMax-M3",
+      "insight": "Introduces a formal rubric for evaluating any proposed React learning path (audience gate, sequencing, practice ratio, modernity, scope honesty, outcomes). This is meta-useful beyond this single answer."
+    },
+    {
+      "model": "MiniMax-M3",
+      "insight": "Explicitly identifies 'React' underspecification as the primary risk and demands clarifying questions about background, target flavor (web vs RN vs SSR), and end-state before delivering any path."
+    },
+    {
+      "model": "Qwen3.6-27B",
+      "insight": "Provides the most concrete project ladder with specific library choices per phase (TanStack Query, Clerk/NextAuth, Prisma+PostgreSQL, Vercel deployment)."
+    },
+    {
+      "model": "Qwen3.6-35B-A3B",
+      "insight": "Self-assessment checkpoint questions are uniquely practical and testable (e.g., 'Can I build a search input with debounced API calls using only useState/useEffect?')."
+    }
+  ],
+  "risks": [
+    {
+      "risk": "Panel provides no original user request — synthesizing without knowing the user's background, goal, or context risks producing a path mismatched to actual needs",
+      "severity": "high",
+      "mitigation": "Final response MUST lead with clarifying questions (MiniMax-M3's key recommendation). State assumptions explicitly. Offer multiple parameterized paths."
+    },
+    {
+      "risk": "Contradictory TypeScript timing advice across models could confuse the user or lead to cognitive overload",
+      "severity": "medium",
+      "mitigation": "Present a conditional recommendation: TS-from-day-1 for experienced devs, TS-after-core-React (~week 5-6) for beginners. Cite both rationales."
+    },
+    {
+      "risk": "No model covers modern React 19 changes (ref as prop, use() hook, useOptimistic) — all paths are React 18-era",
+      "severity": "medium",
+      "mitigation": "Flag that the paths assume React 18/19-compatible APIs. Recommend checking react.dev for the latest API before starting."
+    },
+    {
+      "risk": "Panel ignores how AI coding assistants (Copilot, Cursor, ChatGPT) change the learning dynamic — learners may AI-generate code without understanding it",
+      "severity": "low",
+      "mitigation": "Add a caveat: use AI as a tutor/explainer, not a crutch. The self-assessment checks and 'explain your useEffect dependencies' heuristic mitigate this."
+    },
+    {
+      "risk": "Next.js volatility (App Router, caching, Server Actions still evolving) makes Phase 8 / M6 a moving target — the path ages quickly",
+      "severity": "medium",
+      "mitigation": "Tie Next.js phase to a specific stable version (14.x LTS) and note that App Router patterns may require re-learning within 6-12 months."
+    },
+    {
+      "risk": "Qwen3.6-27B's Phase 7 TypeScript introduction is dangerously late — retrofitting TS after building a full component library is known to be painful",
+      "severity": "high",
+      "mitigation": "Reject Phase 7 as the TS introduction point. Earliest is Phase 3-4 (after core hooks), latest is Phase 5 (before the component library rebuild)."
+    }
+  ],
+  "confidence": 0.82,
+  "recommended_final_strategy": "1. OPEN with clarifying questions (background, goal, timeline, web vs mobile) — do not deliver a non-parameterized path. 2. STRUCTURE the answer as a phased progression map (Kimi-K2.7's architecture-first approach) with concrete projects per phase (Qwen3.6-27B's project ladder). 3. INCLUDE MiniMax-M3's evaluation rubric as a sidebar so users can self-assess any learning resource they encounter. 4. RESOLVE TypeScript timing conditionally: TS-from-day-1 for experienced JS devs, TS-after-core-hooks (~week 5-6) for beginners. 5. RESOLVE state management: teach Context + useReducer thoroughly; introduce Zustand/Redux only on demonstrated need, not as a scheduled phase. 6. PROVIDE time estimates as a range parameterized by background (6-8 weeks fast, 10-14 standard, 16-20 beginner). 7. CLOSE with self-assessment checkpoints (Qwen3.6-35B-A3B), a 'what could go wrong' section (MiniMax-M3), and anti-patterns to flag (Kimi-K2.7). 8. APPEND missing coverage as 'further learning' signposts (a11y, security, DevTools, CI/CD, mobile)."
+}
