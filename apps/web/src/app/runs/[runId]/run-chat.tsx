@@ -4,7 +4,7 @@ import { extractReadableOutput, type FusionRunDetail, type RunEvent, type RunSta
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  RiArrowDownSLine,
+  RiArrowRightLine,
   RiArrowUpLine,
   RiErrorWarningLine,
   RiFileList3Line,
@@ -66,7 +66,6 @@ export function RunChat({ run }: RunChatProps) {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | undefined>(undefined);
   const [drawer, setDrawer] = useState<DrawerState>(null);
-  const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const initialStatus = run.status;
@@ -131,7 +130,7 @@ export function RunChat({ run }: RunChatProps) {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, finalText, showThinking, trace.panels.length, expandedAccordions]);
+  }, [messages, finalText, showThinking, trace.panels.length]);
 
   async function handleContinue() {
     const message = continueMessage.trim();
@@ -153,18 +152,6 @@ export function RunChat({ run }: RunChatProps) {
       event.preventDefault();
       void handleContinue();
     }
-  }
-
-  function toggleAccordion(id: string) {
-    setExpandedAccordions((current) => {
-      const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
   }
 
   function openPanelDrawer(panel: PanelTrace) {
@@ -249,21 +236,9 @@ export function RunChat({ run }: RunChatProps) {
               trace={trace}
               finalText={finalText}
               judgeText={judgeText}
-              expandedAccordions={expandedAccordions}
-              onToggle={toggleAccordion}
               onOpenPanel={openPanelDrawer}
               onOpenJudge={openJudgeDrawer}
               onOpenFinal={openFinalDrawer}
-            />
-          ) : null}
-
-          {showLiveOutput ? (
-            <MessageBubble
-              role="assistant"
-              content={finalText}
-              error={trace.final.error || trace.synthesis.error}
-              isStreaming={trace.final.status === "running"}
-              onOpenFull={openFinalDrawer}
             />
           ) : null}
 
@@ -426,8 +401,6 @@ type OutputAccordionsProps = {
   trace: Trace;
   finalText: string;
   judgeText: string;
-  expandedAccordions: Set<string>;
-  onToggle: (id: string) => void;
   onOpenPanel: (panel: PanelTrace) => void;
   onOpenJudge: () => void;
   onOpenFinal: () => void;
@@ -437,8 +410,6 @@ function OutputAccordions({
   trace,
   finalText,
   judgeText,
-  expandedAccordions,
-  onToggle,
   onOpenPanel,
   onOpenJudge,
   onOpenFinal,
@@ -469,31 +440,15 @@ function OutputAccordions({
         <>
           {trace.panels.map((panel) => {
             currentStep++;
-            const id = `panel-${panel.jobId}`;
-            const isExpanded = expandedAccordions.has(id);
-            const hasContent = panel.text.trim().length > 0;
             return (
-              <AccordionRow
+              <SourceRow
                 key={panel.jobId}
                 step={currentStep}
                 title={panel.modelId}
                 subtitle={[panel.adapter, panel.role].filter(Boolean).join(" · ") || "panel"}
                 status={panel.status}
-                isExpanded={isExpanded}
-                onToggle={() => onToggle(id)}
-                onOpenFull={() => onOpenPanel(panel)}
-              >
-                {panel.error ? (
-                  <p className="break-words text-sm text-destructive">{panel.error}</p>
-                ) : hasContent ? (
-                  <div className="max-h-48 overflow-hidden">
-                    <MarkdownRenderer content={panel.text} />
-                    <div className="pointer-events-none h-8 bg-gradient-to-t from-secondary to-transparent" />
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Waiting for model output.</p>
-                )}
-              </AccordionRow>
+                onClick={() => onOpenPanel(panel)}
+              />
             );
           })}
         </>
@@ -502,26 +457,14 @@ function OutputAccordions({
       {judgeStep ? (
         (() => {
           currentStep++;
-          const id = "judge";
-          const isExpanded = expandedAccordions.has(id);
           return (
-            <AccordionRow
+            <SourceRow
               step={currentStep}
               title="Judge / Synthesis"
               subtitle="Analysis from the final-output model"
               status={trace.synthesis.status}
-              isExpanded={isExpanded}
-              onToggle={() => onToggle(id)}
-              onOpenFull={onOpenJudge}
-            >
-              {trace.synthesis.error ? (
-                <p className="break-words text-sm text-destructive">{trace.synthesis.error}</p>
-              ) : judgeText.trim() ? (
-                <JudgeContent text={judgeText} />
-              ) : (
-                <p className="text-sm text-muted-foreground">Waiting for judge output.</p>
-              )}
-            </AccordionRow>
+              onClick={onOpenJudge}
+            />
           );
         })()
       ) : null}
@@ -529,31 +472,14 @@ function OutputAccordions({
       {finalStep ? (
         (() => {
           currentStep++;
-          const id = "final";
-          const isExpanded = expandedAccordions.has(id);
           return (
-            <AccordionRow
+            <SourceRow
               step={currentStep}
               title="Final Output"
               subtitle="Fused result"
               status={trace.final.status}
-              isExpanded={isExpanded}
-              onToggle={() => onToggle(id)}
-              onOpenFull={onOpenFinal}
-            >
-              {trace.final.error || trace.synthesis.error ? (
-                <p className="break-words text-sm text-destructive">
-                  {trace.final.error || trace.synthesis.error}
-                </p>
-              ) : finalText.trim() ? (
-                <div className="max-h-48 overflow-hidden">
-                  <MarkdownRenderer content={finalText} />
-                  <div className="pointer-events-none h-8 bg-gradient-to-t from-secondary to-transparent" />
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Waiting for final output.</p>
-              )}
-            </AccordionRow>
+              onClick={onOpenFinal}
+            />
           );
         })()
       ) : null}
@@ -561,61 +487,34 @@ function OutputAccordions({
   );
 }
 
-function AccordionRow({
+function SourceRow({
   step,
   title,
   subtitle,
   status,
-  isExpanded,
-  onToggle,
-  onOpenFull,
-  children,
+  onClick,
 }: {
   step: number;
   title: string;
   subtitle: string;
   status: string;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onOpenFull: () => void;
-  children: React.ReactNode;
+  onClick: () => void;
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-border bg-card transition-colors",
-        isExpanded && "border-foreground/10",
-      )}
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors duration-150 hover:border-foreground/10 hover:bg-muted/30"
     >
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left"
-      >
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-md border border-border text-[10px] font-semibold text-muted-foreground">
-          {step}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-foreground">{title}</p>
-          <p className="truncate text-[11px] text-muted-foreground">{subtitle}</p>
-        </div>
-        <StatusPill value={status} />
-        <RiArrowDownSLine
-          aria-hidden
-          className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-150", isExpanded && "rotate-180")}
-        />
-      </button>
-      {isExpanded ? (
-        <div className="border-t border-border px-3 py-2.5">
-          {children}
-          <button
-            onClick={onOpenFull}
-            className="mt-2 text-xs font-medium text-primary hover:text-primary/80"
-          >
-            Open full output →
-          </button>
-        </div>
-      ) : null}
-    </div>
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-md border border-border text-[10px] font-semibold text-muted-foreground">
+        {step}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] font-medium text-foreground">{title}</p>
+        <p className="truncate text-[11px] text-muted-foreground">{subtitle}</p>
+      </div>
+      <StatusPill value={status} />
+      <RiArrowRightLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+    </button>
   );
 }
 
@@ -749,61 +648,6 @@ function EmptyDetail({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
 }
 
-function JudgeContent({ text }: { text: string }) {
-  const judge = parseJudge(text);
-  if (judge) {
-    return (
-      <div className="flex flex-col gap-3">
-        <JudgeList title="Consensus" items={judge.consensus} />
-        <JudgeList
-          title="Contradictions"
-          items={judge.contradictions.map(
-            (item) =>
-              `${item.topic}: ${item.details}${item.recommended_resolution ? ` Resolution: ${item.recommended_resolution}` : ""}`,
-          )}
-        />
-        <JudgeList title="Missing Coverage" items={judge.missing_coverage} />
-        <JudgeList
-          title="Unique Insights"
-          items={judge.unique_insights.map((item) => `${item.model}: ${item.insight}`)}
-        />
-        <JudgeList
-          title="Risks"
-          items={judge.risks.map((risk) => `${risk.severity}: ${risk.risk} - ${risk.mitigation}`)}
-        />
-        {judge.synthesis_strategy || judge.recommended_final_strategy ? (
-          <div>
-            <p className="text-xs font-semibold uppercase text-muted-foreground">Synthesis Strategy</p>
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
-              {judge.synthesis_strategy || judge.recommended_final_strategy}
-            </p>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-  if (text.trim()) {
-    return <MarkdownRenderer content={text} />;
-  }
-  return <EmptyDetail text="Judge/synthesis starts after panel jobs finish." />;
-}
-
-function JudgeList({ title, items }: { title: string; items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <div>
-      <p className="text-xs font-semibold uppercase text-muted-foreground">{title}</p>
-      <ul className="mt-1 flex flex-col gap-1 text-sm text-foreground">
-        {items.map((item, index) => (
-          <li key={`${title}-${index}`} className="break-words">
-            {item}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function buildTrace(events: RunEvent[], initialStatus: RunStatus): Trace {
   const panels = new Map<string, PanelTrace>();
   const synthesis: PhaseTrace = { status: "queued", text: "" };
@@ -919,70 +763,6 @@ function mergeEvents(current: RunEvent[], incoming: RunEvent[]) {
 function appendText(current: string, next: string) {
   if (!next) return current;
   return current ? `${current}${next}` : next;
-}
-
-function parseJudge(text: string):
-  | {
-      consensus: string[];
-      contradictions: Array<{ topic: string; details: string; recommended_resolution: string }>;
-      missing_coverage: string[];
-      unique_insights: Array<{ model: string; insight: string }>;
-      risks: Array<{ risk: string; severity: string; mitigation: string }>;
-      synthesis_strategy: string;
-      recommended_final_strategy: string;
-    }
-  | undefined {
-  if (!text.trim()) return undefined;
-  try {
-    const parsed = JSON.parse(extractJudgeAnalysisText(text)) as {
-      consensus?: unknown;
-      contradictions?: unknown;
-      missing_coverage?: unknown;
-      unique_insights?: unknown;
-      risks?: unknown;
-      synthesis_strategy?: unknown;
-      recommended_final_strategy?: unknown;
-    };
-    return {
-      consensus: toStringArray(parsed.consensus),
-      contradictions: Array.isArray(parsed.contradictions)
-        ? parsed.contradictions.map((item) => ({
-            topic: stringFromRecord(item, "topic"),
-            details: stringFromRecord(item, "details"),
-            recommended_resolution: stringFromRecord(item, "recommended_resolution"),
-          }))
-        : [],
-      missing_coverage: toStringArray(parsed.missing_coverage),
-      unique_insights: Array.isArray(parsed.unique_insights)
-        ? parsed.unique_insights.map((item) => ({
-            model: stringFromRecord(item, "model"),
-            insight: stringFromRecord(item, "insight"),
-          }))
-        : [],
-      risks: Array.isArray(parsed.risks)
-        ? parsed.risks.map((risk) => ({
-            risk: stringFromRecord(risk, "risk"),
-            severity: stringFromRecord(risk, "severity") || "medium",
-            mitigation: stringFromRecord(risk, "mitigation"),
-          }))
-        : [],
-      synthesis_strategy: typeof parsed.synthesis_strategy === "string" ? parsed.synthesis_strategy : "",
-      recommended_final_strategy:
-        typeof parsed.recommended_final_strategy === "string" ? parsed.recommended_final_strategy : "",
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function toStringArray(value: unknown) {
-  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
-}
-
-function stringFromRecord(value: unknown, key: string) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
-  const candidate = (value as Record<string, unknown>)[key];
-  return typeof candidate === "string" ? candidate : "";
 }
 
 function extractFinalOutput(text: string) {
