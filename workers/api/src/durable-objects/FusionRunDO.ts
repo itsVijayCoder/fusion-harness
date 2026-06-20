@@ -50,6 +50,21 @@ export class FusionRunDO {
       return Response.json({ status: "accepted", event: sequencedEvent }, { status: 202 });
     }
 
+    if (url.pathname.endsWith("/delete")) {
+      const entries = await this.state.storage.list();
+      for (const key of entries.keys()) {
+        await this.state.storage.delete(key);
+      }
+      this.broadcast({
+        type: "run.deleted",
+        runId: readString(await request.json().catch(() => ({})), "runId"),
+        seq: 0,
+        timestamp: new Date().toISOString(),
+        data: {},
+      });
+      return Response.json({ status: "deleted" }, { status: 202 });
+    }
+
     return Response.json({ error: "Not found", environment: this.env.ENVIRONMENT }, { status: 404 });
   }
 

@@ -4,6 +4,7 @@ import {
   createAuditEvent,
   createRunEvent,
   ensurePrincipal,
+  getFusionRun,
   getRunner,
   getRunnerJob,
   heartbeatRunner,
@@ -121,6 +122,15 @@ export const runnerRoutes = new Hono<AppBindings>()
     if (!leasedJob) {
       return c.json({ error: "Claimed job is missing from D1", jobId: claimBody.job.id }, 409);
     }
+    if (leasedJob.status !== "leased") {
+      await notifyRunnerSessionObject(
+        c.env,
+        runnerId,
+        `/jobs/${encodeURIComponent(claimBody.job.id)}/${leasedJob.status === "paused" ? "pause" : "cancel"}`,
+        { reason: `Job is ${leasedJob.status}` },
+      );
+      return c.json({ job: null });
+    }
     if (leasedJob.kind === "panel") {
       await updatePanelOutput(c.env.DB, {
         id: panelOutputId(leasedJob.id),
@@ -129,6 +139,23 @@ export const runnerRoutes = new Hono<AppBindings>()
     }
 
     return c.json({ job: { ...leasedJob, payload: claimBody.job.payload } satisfies ClaimedRunnerJob });
+  })
+  .get("/:id/jobs/:jobId", async (c) => {
+    const principal = requireAccessIdentity(c.req.raw.headers);
+    const runnerId = c.req.param("id");
+    const jobId = c.req.param("jobId");
+    const job = await getRunnerJob(c.env.DB, principal.orgId, runnerId, jobId);
+    if (!job) {
+      return c.json({ status: "cancelled", runStatus: "deleted" });
+    }
+
+    const run = await getFusionRun(c.env.DB, principal.orgId, job.runId);
+    if (!run) {
+      return c.json({ job, status: "cancelled", runStatus: "deleted" });
+    }
+
+    const status = run.status === "cancelled" ? "cancelled" : job.status;
+    return c.json({ job, status, runStatus: run.status });
   })
   .post("/:id/jobs/:jobId/events", async (c) => {
     const principal = requireAccessIdentity(c.req.raw.headers);
@@ -308,6 +335,9 @@ function completionEventType(
   kind: RunnerJobKind,
   status: Extract<RunnerJobStatus, "completed" | "failed" | "timeout" | "cancelled">,
 ): RunEvent["type"] {
+  if (status === "cancelled" && (kind === "direct" || kind === "final" || kind === "judge")) {
+    return "run.cancelled";
+  }
   if (status !== "completed") {
     if (kind === "judge") return "judge.failed";
     if (kind === "final" || kind === "direct") return "run.failed";

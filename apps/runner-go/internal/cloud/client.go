@@ -67,6 +67,12 @@ type JobCompletion struct {
 	ArtifactKeys []string       `json:"artifactKeys,omitempty"`
 }
 
+type JobState struct {
+	Status    string      `json:"status"`
+	RunStatus string      `json:"runStatus"`
+	Job       *ClaimedJob `json:"job,omitempty"`
+}
+
 func NewClient(baseURL string, token string) Client {
 	return Client{
 		BaseURL: strings.TrimRight(baseURL, "/"),
@@ -98,6 +104,14 @@ func (client Client) ClaimJob(ctx context.Context, runnerID string, leaseOwner s
 	return body.Job, nil
 }
 
+func (client Client) GetJobState(ctx context.Context, runnerID string, jobID string) (JobState, error) {
+	var body JobState
+	if err := client.getJSON(ctx, "/api/runners/"+runnerID+"/jobs/"+jobID, &body); err != nil {
+		return JobState{}, err
+	}
+	return body, nil
+}
+
 func (client Client) PostJobEvent(ctx context.Context, runnerID string, jobID string, event RunnerEvent) error {
 	return client.post(ctx, "/api/runners/"+runnerID+"/jobs/"+jobID+"/events", event)
 }
@@ -118,6 +132,37 @@ func (client Client) FailJob(ctx context.Context, runnerID string, jobID string,
 
 func (client Client) post(ctx context.Context, path string, payload any) error {
 	return client.postJSON(ctx, path, payload, nil)
+}
+
+func (client Client) getJSON(ctx context.Context, path string, target any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.BaseURL+path, nil)
+	if err != nil {
+		return err
+	}
+	if client.Token != "" {
+		req.Header.Set("authorization", "Bearer "+client.Token)
+	}
+
+	resp, err := client.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if len(responseBody) > 0 {
+			return fmt.Errorf("cloud request failed with status %s: %s", resp.Status, strings.TrimSpace(string(responseBody)))
+		}
+		return fmt.Errorf("cloud request failed with status %s", resp.Status)
+	}
+
+	if target != nil {
+		if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (client Client) postJSON(ctx context.Context, path string, payload any, target any) error {

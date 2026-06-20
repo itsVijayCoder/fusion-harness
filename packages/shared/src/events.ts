@@ -30,9 +30,12 @@ export const RUN_EVENT_TYPES = [
   "command.completed",
   "file.changed",
   "artifact.uploaded",
+  "run.paused",
+  "run.resumed",
   "run.completed",
   "run.failed",
   "run.cancelled",
+  "run.deleted",
 ] as const;
 
 export type RunEventType = (typeof RUN_EVENT_TYPES)[number];

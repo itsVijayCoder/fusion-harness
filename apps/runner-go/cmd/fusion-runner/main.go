@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -292,6 +293,8 @@ func executeCloudJob(ctx context.Context, client cloud.Client, cfg config.Config
 	if payload.TimeoutMs <= 0 {
 		payload.TimeoutMs = int((10 * time.Minute).Milliseconds())
 	}
+	jobCtx, stopJobContext, cancelledByCloud := cloudCancellableJobContext(ctx, client, cfg.RunnerID, payload.JobID)
+	defer stopJobContext()
 
 	workspacePath, allowedRoots, err := workspacePathForJob(payload, cfg)
 	if err != nil {
@@ -333,9 +336,15 @@ func executeCloudJob(ctx context.Context, client cloud.Client, cfg config.Config
 		}
 	}
 
-	result, runErr := runner.Run(ctx, input, emit)
+	result, runErr := runner.Run(jobCtx, input, emit)
 	if result == nil {
 		result = &adapters.RunResult{Status: "failed"}
+	}
+	if cancelledByCloud.Load() {
+		result.Status = "cancelled"
+		if result.Error == "" {
+			result.Error = "job cancelled by user"
+		}
 	}
 	if runErr != nil && result.Error == "" {
 		result.Error = runErr.Error()
@@ -375,6 +384,46 @@ func executeCloudJob(ctx context.Context, client cloud.Client, cfg config.Config
 		completion.Status = "failed"
 	}
 	return client.FailJob(ctx, cfg.RunnerID, payload.JobID, completion)
+}
+
+func cloudCancellableJobContext(ctx context.Context, client cloud.Client, runnerID string, jobID string) (context.Context, func(), *atomic.Bool) {
+	jobCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	cancelledByCloud := &atomic.Bool{}
+
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-jobCtx.Done():
+				return
+			case <-done:
+				return
+			case <-ticker.C:
+				state, err := client.GetJobState(ctx, runnerID, jobID)
+				if err != nil {
+					continue
+				}
+				if shouldCancelLocalJob(state) {
+					cancelledByCloud.Store(true)
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+
+	stop := func() {
+		close(done)
+		cancel()
+	}
+	return jobCtx, stop, cancelledByCloud
+}
+
+func shouldCancelLocalJob(state cloud.JobState) bool {
+	return state.Status == "cancelled" || state.RunStatus == "cancelled" || state.RunStatus == "deleted"
 }
 
 func adapterForCloudJob(adapter string, cfg config.Config, allowedRoots []string) (adapters.Adapter, error) {

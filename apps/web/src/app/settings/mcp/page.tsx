@@ -1,6 +1,17 @@
 import { PageHeader, Section } from "@/components/product-ui";
 
-const tools = ["fusion.run", "fusion.get_run", "fusion.list_models", "fusion.list_runners", "fusion.get_artifacts", "fusion.apply_patch", "fusion.cancel_run"];
+const tools = [
+  "fusion.run",
+  "fusion.get_run",
+  "fusion.list_models",
+  "fusion.list_runners",
+  "fusion.get_artifacts",
+  "fusion.apply_patch",
+  "fusion.cancel_run",
+  "fusion.pause_run",
+  "fusion.resume_run",
+  "fusion.delete_run",
+];
 
 export default function McpSettingsPage() {
   return (

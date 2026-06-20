@@ -11,7 +11,11 @@ import {
   RiFileList3Line,
   RiHistoryLine,
   RiLayoutGridLine,
+  RiDeleteBinLine,
+  RiPauseLine,
+  RiPlayLine,
   RiRobot2Line,
+  RiStopLine,
   RiUserLine,
 } from "@remixicon/react";
 import { FinalOutputModal } from "@/components/final-output-modal";
@@ -20,7 +24,7 @@ import { ModelBadge } from "@/components/model-badge";
 import { OutputDrawer } from "@/components/output-drawer";
 import { StatusPill } from "@/components/product-ui";
 import { TopNav } from "@/features/fusion/top-nav";
-import { apiPost, apiUrl } from "@/lib/api";
+import { apiDelete, apiPost, apiUrl } from "@/lib/api";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -60,6 +64,8 @@ type DrawerState = {
   error?: string;
 } | null;
 
+type LifecycleAction = "pause" | "resume" | "cancel" | "delete";
+
 export function RunChat({ run }: RunChatProps) {
   const router = useRouter();
   const [events, setEvents] = useState<RunEvent[]>([]);
@@ -71,6 +77,7 @@ export function RunChat({ run }: RunChatProps) {
   const [drawer, setDrawer] = useState<DrawerState>(null);
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [judgeExpanded, setJudgeExpanded] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState<LifecycleAction | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const initialStatus = run.status;
@@ -126,6 +133,7 @@ export function RunChat({ run }: RunChatProps) {
   const judgeText = extractJudgeAnalysisText(trace.synthesis.text);
   const currentStatus = trace.runStatus;
   const isRunActive = currentStatus === "queued" || currentStatus === "running" || currentStatus === "waiting_approval";
+  const isRunInProgress = isRunActive || currentStatus === "paused";
   const showLiveOutput = finalText.trim().length > 0 || trace.final.status === "running";
   const showThinking = isRunActive && !showLiveOutput;
   const hasPanelOutputs = trace.panels.some((p) => p.text.trim().length > 0 || p.status === "running");
@@ -140,7 +148,7 @@ export function RunChat({ run }: RunChatProps) {
 
   async function handleContinue() {
     const message = continueMessage.trim();
-    if (!message || isSending || isRunActive) return;
+    if (!message || isSending || isRunInProgress) return;
 
     setIsSending(true);
     setSendError(undefined);
@@ -150,6 +158,28 @@ export function RunChat({ run }: RunChatProps) {
     } catch (error) {
       setSendError(error instanceof Error ? error.message : "Failed to continue conversation");
       setIsSending(false);
+    }
+  }
+
+  async function handleLifecycleAction(action: LifecycleAction) {
+    if (lifecycleAction) return;
+    if (action === "cancel" && !window.confirm("Stop this run and cancel the local agent process?")) return;
+    if (action === "delete" && !window.confirm("Delete this run history and artifacts? Running work will be stopped first.")) return;
+
+    setLifecycleAction(action);
+    setSendError(undefined);
+    try {
+      if (action === "delete") {
+        await apiDelete<{ status: string }>(`/api/fusion/runs/${run.id}`);
+        router.push("/chat");
+        return;
+      }
+      const endpoint = action === "cancel" ? "cancel" : action;
+      await apiPost(`/api/fusion/runs/${run.id}/${endpoint}`, {});
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : `Failed to ${action} run`);
+    } finally {
+      setLifecycleAction(null);
     }
   }
 
@@ -192,6 +222,11 @@ export function RunChat({ run }: RunChatProps) {
           >
             {connection}
           </span>
+          <RunLifecycleControls
+            status={currentStatus}
+            pendingAction={lifecycleAction}
+            onAction={(action) => void handleLifecycleAction(action)}
+          />
           <button
             type="button"
             onClick={() => setShowDetails(true)}
@@ -247,22 +282,22 @@ export function RunChat({ run }: RunChatProps) {
               value={continueMessage}
               onChange={(event) => setContinueMessage(event.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isRunActive || isSending}
-              placeholder={isRunActive ? "Waiting for run to complete..." : "Continue the conversation..."}
+              disabled={isRunInProgress || isSending}
+              placeholder={isRunInProgress ? (currentStatus === "paused" ? "Run is paused..." : "Waiting for run to complete...") : "Continue the conversation..."}
               rows={1}
               className="max-h-32 min-h-[2.5rem] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
             />
             <button
               type="button"
               onClick={() => void handleContinue()}
-              disabled={isRunActive || isSending || !continueMessage.trim()}
+              disabled={isRunInProgress || isSending || !continueMessage.trim()}
               className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <RiArrowUpLine aria-hidden className="size-4" />
             </button>
           </div>
           <p className="mt-1.5 px-2 text-xs text-muted-foreground">
-            {isRunActive
+            {isRunInProgress
               ? "Continue will be available once the run completes."
               : "Press Enter to send, Shift+Enter for new line."}
           </p>
@@ -295,6 +330,88 @@ export function RunChat({ run }: RunChatProps) {
         <DetailsPanel run={run} onClose={() => setShowDetails(false)} />
       ) : null}
     </div>
+  );
+}
+
+function RunLifecycleControls({
+  status,
+  pendingAction,
+  onAction,
+}: {
+  status: RunStatus;
+  pendingAction: LifecycleAction | null;
+  onAction: (action: LifecycleAction) => void;
+}) {
+  const canPause = status === "queued" || status === "running" || status === "waiting_approval";
+  const canResume = status === "paused";
+  const canStop = canPause || canResume;
+  const disabled = Boolean(pendingAction);
+
+  return (
+    <div className="flex items-center gap-1">
+      {canResume ? (
+        <LifecycleButton
+          label={pendingAction === "resume" ? "Resuming" : "Resume"}
+          icon={RiPlayLine}
+          disabled={disabled}
+          onClick={() => onAction("resume")}
+        />
+      ) : (
+        <LifecycleButton
+          label={pendingAction === "pause" ? "Pausing" : "Pause"}
+          icon={RiPauseLine}
+          disabled={!canPause || disabled}
+          onClick={() => onAction("pause")}
+        />
+      )}
+      <LifecycleButton
+        label={pendingAction === "cancel" ? "Stopping" : "Stop"}
+        icon={RiStopLine}
+        disabled={!canStop || disabled}
+        destructive
+        onClick={() => onAction("cancel")}
+      />
+      <LifecycleButton
+        label={pendingAction === "delete" ? "Deleting" : "Delete"}
+        icon={RiDeleteBinLine}
+        disabled={disabled}
+        destructive
+        onClick={() => onAction("delete")}
+      />
+    </div>
+  );
+}
+
+function LifecycleButton({
+  label,
+  icon: Icon,
+  disabled,
+  destructive,
+  onClick,
+}: {
+  label: string;
+  icon: React.ElementType;
+  disabled?: boolean;
+  destructive?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40",
+        destructive
+          ? "border-destructive/30 text-destructive hover:bg-destructive/10"
+          : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <Icon aria-hidden className="size-4" />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
   );
 }
 
@@ -941,6 +1058,12 @@ function buildTrace(events: RunEvent[], initialStatus: RunStatus): Trace {
       final.text = final.text || eventText(event);
     }
     if (event.type === "run.started") {
+      runStatus = "running";
+    }
+    if (event.type === "run.paused") {
+      runStatus = "paused";
+    }
+    if (event.type === "run.resumed") {
       runStatus = "running";
     }
     if (event.type === "run.completed") {

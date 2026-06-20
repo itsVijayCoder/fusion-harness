@@ -1,4 +1,4 @@
-import { MessageSquarePlus, Plus } from "lucide-react";
+import { MessageSquarePlus, Plus, Trash2 } from "lucide-react";
 import type { FusionChat } from "./types";
 import { cn } from "@/lib/utils";
 
@@ -8,9 +8,10 @@ type SidebarProps = {
   loading: boolean;
   onNewFusion: () => void;
   onSelectChat: (chatId: string) => void;
+  onDeleteChat: (chatId: string) => void;
 };
 
-export function Sidebar({ chats, activeChatId, loading, onNewFusion, onSelectChat }: SidebarProps) {
+export function Sidebar({ chats, activeChatId, loading, onNewFusion, onSelectChat, onDeleteChat }: SidebarProps) {
   return (
     <aside className="flex w-[250px] shrink-0 flex-col border-r border-border bg-sidebar">
       <div className="p-3">
@@ -37,19 +38,33 @@ export function Sidebar({ chats, activeChatId, loading, onNewFusion, onSelectCha
         ) : (
           <div className="flex flex-col gap-0.5">
             {chats.map((chat) => (
-              <button
+              <div
                 key={chat.id}
-                onClick={() => onSelectChat(chat.id)}
                 className={cn(
-                  "group flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors duration-150",
+                  "group flex items-center rounded-lg transition-colors duration-150",
                   activeChatId === chat.id
                     ? "bg-muted text-foreground"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
               >
-                <MessageSquarePlus aria-hidden className="size-3.5 shrink-0 opacity-60" />
-                <span className="flex-1 truncate text-[13px]">{chat.title}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectChat(chat.id)}
+                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
+                >
+                  <MessageSquarePlus aria-hidden className="size-3.5 shrink-0 opacity-60" />
+                  <span className="flex-1 truncate text-[13px]">{chat.title}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Delete ${chat.title}`}
+                  title="Delete"
+                  onClick={() => onDeleteChat(chat.id)}
+                  className="mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus:opacity-100"
+                >
+                  <Trash2 aria-hidden className="size-3.5" />
+                </button>
+              </div>
             ))}
           </div>
         )}

@@ -7,7 +7,7 @@ import { ModelPicker } from "./model-picker";
 import { Sidebar } from "./sidebar";
 import { TopNav } from "./top-nav";
 import type { FusionChat, FusionMode, ModelOption } from "./types";
-import { apiPost, apiUrl } from "@/lib/api";
+import { apiDelete, apiPost, apiUrl } from "@/lib/api";
 
 type FusionAppProps = {
   models: ModelOption[];
@@ -118,6 +118,23 @@ export function FusionApp({ models }: FusionAppProps) {
     [router],
   );
 
+  const handleDeleteChat = useCallback(
+    async (chatId: string) => {
+      if (!window.confirm("Delete this run history and artifacts? Running work will be stopped first.")) return;
+      try {
+        await apiDelete<{ status: string }>(`/api/fusion/runs/${chatId}`);
+        setChats((current) => current.filter((chat) => chat.id !== chatId));
+        if (activeChatId === chatId) {
+          setActiveChatId(null);
+          router.push("/chat");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to delete run");
+      }
+    },
+    [activeChatId, router],
+  );
+
   return (
     <div className="flex h-[100dvh] flex-col bg-background text-foreground">
       <TopNav />
@@ -128,6 +145,7 @@ export function FusionApp({ models }: FusionAppProps) {
           loading={chatsLoading}
           onNewFusion={handleNewFusion}
           onSelectChat={handleSelectChat}
+          onDeleteChat={handleDeleteChat}
         />
         <main className="min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[680px] px-6 pb-12">

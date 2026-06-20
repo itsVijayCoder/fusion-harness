@@ -46,6 +46,13 @@ export class RunnerSessionDO {
       return Response.json({ status: job ? "accepted" : "missing", jobId }, { status: job ? 202 : 404 });
     }
 
+    const lifecycleMatch = url.pathname.match(/\/jobs\/([^/]+)\/(pause|resume|cancel)$/);
+    if (lifecycleMatch) {
+      const [, jobId, action] = lifecycleMatch;
+      const job = await this.updateJobLifecycle(jobId, action as "pause" | "resume" | "cancel");
+      return Response.json({ status: job ? "accepted" : "missing", jobId }, { status: job ? 202 : 404 });
+    }
+
     if (url.pathname.endsWith("/state")) {
       const [lastSeenAt, queueDepth] = await Promise.all([this.state.storage.get<string>("last_seen_at"), this.queueDepth()]);
       return Response.json({
@@ -115,6 +122,27 @@ export class RunnerSessionDO {
     });
     await this.state.storage.delete(jobIndexKey(jobId));
     await this.state.storage.delete(key);
+    return job;
+  }
+
+  private async updateJobLifecycle(jobId: string, action: "pause" | "resume" | "cancel") {
+    const key = await this.state.storage.get<string>(jobIndexKey(jobId));
+    if (!key) return null;
+
+    const job = await this.state.storage.get<ClaimedRunnerJob>(key);
+    if (!job) return null;
+
+    if (action === "cancel") {
+      await this.state.storage.delete(jobIndexKey(jobId));
+      await this.state.storage.delete(key);
+      return job;
+    }
+
+    const status = action === "pause" ? "paused" : "queued";
+    await this.state.storage.put(key, {
+      ...job,
+      status,
+    });
     return job;
   }
 

@@ -7,7 +7,7 @@ import { formatDateTime } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 const fallbackDashboard: DashboardSnapshot = {
-  runs: { total: 0, queued: 0, running: 0, waitingApproval: 0, completed: 0, failed: 0, cancelled: 0 },
+  runs: { total: 0, queued: 0, running: 0, paused: 0, waitingApproval: 0, completed: 0, failed: 0, cancelled: 0 },
   runners: { total: 0, online: 0, offline: 0, disabled: 0 },
   models: { total: 0, verified: 0, cliSession: 0, cloudGateway: 0 },
   artifacts: { total: 0, totalBytes: 0 },
@@ -23,7 +23,7 @@ export default async function DashboardPage() {
       <PageHeader title="Dashboard" description="Run health, active runners, model availability, and recent audit activity." />
       <DataNotice source={snapshot.source} error={snapshot.error} />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Runs" value={snapshot.data.runs.total} detail={`${snapshot.data.runs.running} running, ${snapshot.data.runs.queued} queued`} />
+        <Metric label="Runs" value={snapshot.data.runs.total} detail={`${snapshot.data.runs.running} running, ${snapshot.data.runs.queued} queued, ${snapshot.data.runs.paused} paused`} />
         <Metric label="Runners" value={snapshot.data.runners.total} detail={`${snapshot.data.runners.online} online`} />
         <Metric label="Models" value={snapshot.data.models.total} detail={`${snapshot.data.models.verified} verified`} />
         <Metric label="Artifacts" value={snapshot.data.artifacts.total} detail="Stored in R2 with D1 metadata" />

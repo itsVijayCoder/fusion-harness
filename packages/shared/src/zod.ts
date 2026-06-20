@@ -34,12 +34,12 @@ export const modelAvailabilitySchema = z.enum(["detected", "listed", "verified",
 export const modelSourceSchema = z.enum(["live", "fallback", "suggested", "custom"]);
 export const permissionProfileSchema = z.enum(["readonly", "workspace_write", "trusted_internal"]);
 export const fusionModeSchema = z.enum(["direct", "auto", "required"]);
-export const runStatusSchema = z.enum(["queued", "running", "waiting_approval", "completed", "failed", "cancelled"]);
+export const runStatusSchema = z.enum(["queued", "running", "paused", "waiting_approval", "completed", "failed", "cancelled"]);
 export const runnerStatusSchema = z.enum(["online", "offline", "disabled"]);
 export const toolKindSchema = z.enum(["opencode", "codex", "docker", "git", "custom"]);
 export const toolStatusSchema = z.enum(["detected", "verified", "unavailable", "error"]);
 export const runnerJobKindSchema = z.enum(["direct", "panel", "judge", "final", "command", "patch"]);
-export const runnerJobStatusSchema = z.enum(["queued", "leased", "running", "completed", "failed", "timeout", "cancelled"]);
+export const runnerJobStatusSchema = z.enum(["queued", "paused", "leased", "running", "completed", "failed", "timeout", "cancelled"]);
 export const artifactKindSchema = z.enum([
   "prompt",
   "panel_output",
@@ -86,9 +86,12 @@ export const runEventTypeSchema = z.enum([
   "command.completed",
   "file.changed",
   "artifact.uploaded",
+  "run.paused",
+  "run.resumed",
   "run.completed",
   "run.failed",
   "run.cancelled",
+  "run.deleted",
 ]);
 
 export const chatMessageSchema = z.object({

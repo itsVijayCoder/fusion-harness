@@ -144,6 +144,17 @@ export type CompleteRunnerJobInput = {
   completedAt: string;
 };
 
+export type UpdateRunnerJobStatusInput = {
+  orgId: string;
+  runnerId: string;
+  jobId: string;
+  status: RunnerJobStatus;
+  outputObjectKey?: string;
+  error?: string;
+  leaseExpiresAt?: string;
+  completedAt?: string;
+};
+
 export type CreateRunEventInput = {
   id: string;
   orgId: string;
@@ -636,19 +647,33 @@ export async function markRunnerJobLeased(db: D1DatabaseLike, input: MarkRunnerJ
 }
 
 export async function completeRunnerJob(db: D1DatabaseLike, input: CompleteRunnerJobInput): Promise<RunnerJob | null> {
+  return updateRunnerJobStatus(db, {
+    orgId: input.orgId,
+    runnerId: input.runnerId,
+    jobId: input.jobId,
+    status: input.status,
+    outputObjectKey: input.outputObjectKey,
+    error: input.error,
+    completedAt: input.completedAt,
+  });
+}
+
+export async function updateRunnerJobStatus(db: D1DatabaseLike, input: UpdateRunnerJobStatusInput): Promise<RunnerJob | null> {
   await db
     .prepare(
       `UPDATE runner_jobs
        SET status = ?,
            output_object_key = COALESCE(?, output_object_key),
            error = COALESCE(?, error),
-           completed_at = ?
+           lease_expires_at = COALESCE(?, lease_expires_at),
+           completed_at = COALESCE(?, completed_at)
        WHERE org_id = ? AND runner_id = ? AND id = ?`,
     )
     .bind(
       input.status,
       input.outputObjectKey ?? null,
       input.error ?? null,
+      input.leaseExpiresAt ?? null,
       input.completedAt,
       input.orgId,
       input.runnerId,
@@ -657,6 +682,15 @@ export async function completeRunnerJob(db: D1DatabaseLike, input: CompleteRunne
     .run();
 
   return getRunnerJob(db, input.orgId, input.runnerId, input.jobId);
+}
+
+export async function deleteFusionRunData(db: D1DatabaseLike, orgId: string, runId: string) {
+  await db.prepare("DELETE FROM panel_outputs WHERE run_id = ?").bind(runId).run();
+  await db.prepare("DELETE FROM runner_jobs WHERE org_id = ? AND run_id = ?").bind(orgId, runId).run();
+  await db.prepare("DELETE FROM run_events WHERE org_id = ? AND run_id = ?").bind(orgId, runId).run();
+  await db.prepare("DELETE FROM artifacts WHERE org_id = ? AND run_id = ?").bind(orgId, runId).run();
+  await db.prepare("DELETE FROM audit_events WHERE org_id = ? AND run_id = ?").bind(orgId, runId).run();
+  await db.prepare("DELETE FROM fusion_runs WHERE org_id = ? AND id = ?").bind(orgId, runId).run();
 }
 
 export async function createRunEvent(db: D1DatabaseLike, input: CreateRunEventInput): Promise<RunEvent> {
@@ -886,6 +920,7 @@ export async function getDashboardSnapshot(db: D1DatabaseLike, orgId: string): P
       total: sumCounts(runStatusCounts),
       queued: runStatusCounts.queued ?? 0,
       running: runStatusCounts.running ?? 0,
+      paused: runStatusCounts.paused ?? 0,
       waitingApproval: runStatusCounts.waiting_approval ?? 0,
       completed: runStatusCounts.completed ?? 0,
       failed: runStatusCounts.failed ?? 0,

@@ -2,10 +2,13 @@ import { Hono } from "hono";
 import { authenticateMcpRequest } from "./auth";
 import { applyPatchTool } from "./tools/fusion-apply-patch";
 import { cancelRunTool } from "./tools/fusion-cancel-run";
+import { deleteRunTool } from "./tools/fusion-delete-run";
 import { getArtifactsTool } from "./tools/fusion-get-artifacts";
 import { getRunTool } from "./tools/fusion-get-run";
 import { listModelsTool } from "./tools/fusion-list-models";
 import { listRunnersTool } from "./tools/fusion-list-runners";
+import { pauseRunTool } from "./tools/fusion-pause-run";
+import { resumeRunTool } from "./tools/fusion-resume-run";
 import { runTool } from "./tools/fusion-run";
 
 type Env = {
@@ -31,7 +34,18 @@ type ToolDefinition = {
 
 const app = new Hono<{ Bindings: Env }>();
 
-const tools = [runTool, getRunTool, listModelsTool, listRunnersTool, getArtifactsTool, applyPatchTool, cancelRunTool] satisfies ToolDefinition[];
+const tools = [
+  runTool,
+  getRunTool,
+  listModelsTool,
+  listRunnersTool,
+  getArtifactsTool,
+  applyPatchTool,
+  cancelRunTool,
+  pauseRunTool,
+  resumeRunTool,
+  deleteRunTool,
+] satisfies ToolDefinition[];
 
 app.get("/", (c) =>
   c.json({
@@ -107,12 +121,18 @@ async function callTool(env: Env, headers: Headers, name: string, args: Record<s
       });
     case "fusion.cancel_run":
       return fusionApi(env, headers, `/api/fusion/runs/${requiredStringArg(args, "run_id")}/cancel`, { method: "POST" });
+    case "fusion.pause_run":
+      return fusionApi(env, headers, `/api/fusion/runs/${requiredStringArg(args, "run_id")}/pause`, { method: "POST" });
+    case "fusion.resume_run":
+      return fusionApi(env, headers, `/api/fusion/runs/${requiredStringArg(args, "run_id")}/resume`, { method: "POST" });
+    case "fusion.delete_run":
+      return fusionApi(env, headers, `/api/fusion/runs/${requiredStringArg(args, "run_id")}`, { method: "DELETE" });
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
 }
 
-async function fusionApi(env: Env, inboundHeaders: Headers, path: string, init: { method: "GET" | "POST"; body?: unknown }) {
+async function fusionApi(env: Env, inboundHeaders: Headers, path: string, init: { method: "GET" | "POST" | "DELETE"; body?: unknown }) {
   const headers = new Headers({
     accept: "application/json",
   });

@@ -6,14 +6,18 @@ import {
   createPanelOutput,
   createRunEvent,
   createRunnerJob,
+  deleteFusionRunData,
   ensureModel,
   ensurePrincipal,
   getFusionRun,
   listRunEvents,
+  listArtifactsByRun,
   listRunnerJobsByRun,
   listModels,
   listRunners,
+  updateRunnerJobStatus,
   updateFusionRunStatus,
+  updatePanelOutput,
 } from "@fusion-harness/db";
 import {
   extractReadableOutput,
@@ -57,6 +61,16 @@ export class RunCreationError extends Error {
   ) {
     super(message);
     this.name = "RunCreationError";
+  }
+}
+
+export class RunLifecycleError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: 400 | 404 | 409 | 422 = 409,
+  ) {
+    super(message);
+    this.name = "RunLifecycleError";
   }
 }
 
@@ -322,6 +336,7 @@ function extractFinalOutput(text: string): string {
 export async function advanceFusionRunAfterJob(env: Env, orgId: string, completedJob: RunnerJob, now = new Date().toISOString()) {
   const run = await getFusionRun(env.DB, orgId, completedJob.runId);
   if (!run?.executionPlan) return;
+  if (run.status === "paused" || isTerminalRunStatus(run.status)) return;
 
   if (completedJob.kind === "direct" || completedJob.kind === "judge") {
     const status = completedJob.status === "completed" ? "completed" : "failed";
@@ -381,6 +396,183 @@ export async function reconcileFusionRun(env: Env, orgId: string, runId: string,
   if (latestTerminalJob) {
     await advanceFusionRunAfterJob(env, orgId, latestTerminalJob, now);
   }
+}
+
+export async function pauseRun(env: Env, principal: AccessIdentity, runId: string) {
+  const run = await requireRun(env, principal.orgId, runId);
+  if (isTerminalRunStatus(run.status)) {
+    throw new RunLifecycleError("Completed, failed, and cancelled runs cannot be paused.");
+  }
+  if (run.status === "paused") return run;
+
+  const now = new Date().toISOString();
+  const jobs = await listRunnerJobsByRun(env.DB, principal.orgId, runId);
+  for (const job of jobs.filter((candidate) => candidate.status === "queued")) {
+    await updateRunnerJobStatus(env.DB, {
+      orgId: principal.orgId,
+      runnerId: job.runnerId,
+      jobId: job.id,
+      status: "paused",
+    });
+    await notifyRunnerSessionObject(env, job.runnerId, `/jobs/${encodeURIComponent(job.id)}/pause`, {});
+  }
+
+  await updateFusionRunStatus(env.DB, principal.orgId, runId, "paused", now);
+  await createAuditEvent(env.DB, {
+    id: formatEntityId("audit", crypto.randomUUID()),
+    orgId: principal.orgId,
+    userId: principal.userId,
+    runId,
+    eventType: "run.paused",
+    severity: "warning",
+    metadata: {
+      pausedQueuedJobs: jobs.filter((candidate) => candidate.status === "queued").length,
+      activeJobs: jobs.filter((candidate) => candidate.status === "leased" || candidate.status === "running").length,
+    },
+    createdAt: now,
+  });
+  await appendRunEvent(env, principal.orgId, {
+    type: "run.paused",
+    runId,
+    timestamp: now,
+    data: {},
+  });
+
+  return requireRun(env, principal.orgId, runId);
+}
+
+export async function resumeRun(env: Env, principal: AccessIdentity, runId: string) {
+  const run = await requireRun(env, principal.orgId, runId);
+  if (run.status !== "paused") {
+    throw new RunLifecycleError("Only paused runs can be resumed.");
+  }
+
+  const now = new Date().toISOString();
+  const jobs = await listRunnerJobsByRun(env.DB, principal.orgId, runId);
+  for (const job of jobs.filter((candidate) => candidate.status === "paused")) {
+    await updateRunnerJobStatus(env.DB, {
+      orgId: principal.orgId,
+      runnerId: job.runnerId,
+      jobId: job.id,
+      status: "queued",
+    });
+    await notifyRunnerSessionObject(env, job.runnerId, `/jobs/${encodeURIComponent(job.id)}/resume`, {});
+  }
+
+  await updateFusionRunStatus(env.DB, principal.orgId, runId, "running", now);
+  await createAuditEvent(env.DB, {
+    id: formatEntityId("audit", crypto.randomUUID()),
+    orgId: principal.orgId,
+    userId: principal.userId,
+    runId,
+    eventType: "run.resumed",
+    metadata: {
+      resumedJobs: jobs.filter((candidate) => candidate.status === "paused").length,
+    },
+    createdAt: now,
+  });
+  await appendRunEvent(env, principal.orgId, {
+    type: "run.resumed",
+    runId,
+    timestamp: now,
+    data: {},
+  });
+  await reconcileFusionRun(env, principal.orgId, runId, now);
+
+  return requireRun(env, principal.orgId, runId);
+}
+
+export async function cancelRun(env: Env, principal: AccessIdentity, runId: string, reason = "Cancelled by user") {
+  const run = await requireRun(env, principal.orgId, runId);
+  if (run.status === "cancelled") return run;
+  if (run.status === "completed" || run.status === "failed") {
+    throw new RunLifecycleError("Completed and failed runs cannot be stopped; delete them if you only want to remove history.");
+  }
+
+  const now = new Date().toISOString();
+  const jobs = await listRunnerJobsByRun(env.DB, principal.orgId, runId);
+  for (const job of jobs.filter((candidate) => !isTerminalJobStatus(candidate.status))) {
+    await updateRunnerJobStatus(env.DB, {
+      orgId: principal.orgId,
+      runnerId: job.runnerId,
+      jobId: job.id,
+      status: "cancelled",
+      error: reason,
+      completedAt: now,
+    });
+    if (job.kind === "panel") {
+      await updatePanelOutput(env.DB, {
+        id: panelOutputId(job.id),
+        status: "cancelled",
+        error: reason,
+        completedAt: now,
+      });
+    }
+    await notifyRunnerSessionObject(env, job.runnerId, `/jobs/${encodeURIComponent(job.id)}/cancel`, { reason });
+  }
+
+  await updateFusionRunStatus(env.DB, principal.orgId, runId, "cancelled", now, reason);
+  await createAuditEvent(env.DB, {
+    id: formatEntityId("audit", crypto.randomUUID()),
+    orgId: principal.orgId,
+    userId: principal.userId,
+    runId,
+    eventType: "run.cancelled",
+    severity: "warning",
+    metadata: {
+      reason,
+      cancelledJobs: jobs.filter((candidate) => !isTerminalJobStatus(candidate.status)).length,
+    },
+    createdAt: now,
+  });
+  await appendRunEvent(env, principal.orgId, {
+    type: "run.cancelled",
+    runId,
+    timestamp: now,
+    data: { reason },
+  });
+
+  return requireRun(env, principal.orgId, runId);
+}
+
+export async function deleteRun(env: Env, principal: AccessIdentity, runId: string) {
+  const run = await requireRun(env, principal.orgId, runId);
+  if (!isTerminalRunStatus(run.status)) {
+    await cancelRun(env, principal, runId, "Deleted by user");
+  }
+
+  const refreshedRun = await requireRun(env, principal.orgId, runId);
+  const artifacts = await listArtifactsByRun(env.DB, principal.orgId, runId);
+  if (env.ARTIFACTS) {
+    const objectKeys = new Set(
+      [
+        refreshedRun.promptObjectKey,
+        refreshedRun.judgeObjectKey,
+        refreshedRun.finalObjectKey,
+        ...artifacts.map((artifact) => artifact.objectKey),
+      ].filter((value): value is string => Boolean(value)),
+    );
+    for (const objectKey of objectKeys) {
+      await env.ARTIFACTS.delete(objectKey);
+    }
+  }
+
+  await deleteFusionRunData(env.DB, principal.orgId, runId);
+  await createAuditEvent(env.DB, {
+    id: formatEntityId("audit", crypto.randomUUID()),
+    orgId: principal.orgId,
+    userId: principal.userId,
+    eventType: "run.deleted",
+    severity: "warning",
+    metadata: {
+      runId,
+      status: refreshedRun.status,
+      title: refreshedRun.title,
+      artifactCount: artifacts.length,
+    },
+    createdAt: new Date().toISOString(),
+  });
+  await notifyFusionRunObject(env, runId, "/delete", { runId });
 }
 
 async function dispatchDeferredStep(
@@ -681,6 +873,22 @@ function plannedJobs(plan: FusionExecutionPlan, kind: RunnerJobKind) {
 
 function isTerminal(status: RunnerJob["status"] | undefined) {
   return status === "completed" || status === "failed" || status === "timeout" || status === "cancelled";
+}
+
+function isTerminalJobStatus(status: RunnerJob["status"]) {
+  return status === "completed" || status === "failed" || status === "timeout" || status === "cancelled";
+}
+
+function isTerminalRunStatus(status: NonNullable<Awaited<ReturnType<typeof getFusionRun>>>["status"]) {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+async function requireRun(env: Env, orgId: string, runId: string) {
+  const run = await getFusionRun(env.DB, orgId, runId);
+  if (!run) {
+    throw new RunLifecycleError("Run not found", 404);
+  }
+  return run;
 }
 
 function parseJson<T>(value: string): T | undefined {

@@ -37,7 +37,7 @@ export type PermissionProfile = "readonly" | "workspace_write" | "trusted_intern
 
 export type FusionMode = "direct" | "auto" | "required";
 
-export type RunStatus = "queued" | "running" | "waiting_approval" | "completed" | "failed" | "cancelled";
+export type RunStatus = "queued" | "running" | "paused" | "waiting_approval" | "completed" | "failed" | "cancelled";
 
 export type UserRole = "owner" | "admin" | "developer" | "viewer";
 
@@ -51,7 +51,7 @@ export type PanelOutputStatus = "queued" | "running" | "completed" | "failed" | 
 
 export type RunnerJobKind = "direct" | "panel" | "judge" | "final" | "command" | "patch";
 
-export type RunnerJobStatus = "queued" | "leased" | "running" | "completed" | "failed" | "timeout" | "cancelled";
+export type RunnerJobStatus = "queued" | "paused" | "leased" | "running" | "completed" | "failed" | "timeout" | "cancelled";
 
 export type AuditSeverity = "info" | "warning" | "error";
 
@@ -291,6 +291,7 @@ export type DashboardSnapshot = {
     total: number;
     queued: number;
     running: number;
+    paused: number;
     waitingApproval: number;
     completed: number;
     failed: number;

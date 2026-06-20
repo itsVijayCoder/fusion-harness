@@ -64,6 +64,20 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return (await response.json()) as T;
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const response = await fetch(apiUrl(path), {
+    method: "DELETE",
+    headers: devHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(readErrorMessage(error) ?? `API returned ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
+
 function devHeaders() {
   return {
     "x-fusion-dev-email": "developer@fusion.local",

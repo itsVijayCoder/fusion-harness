@@ -1,10 +1,21 @@
-import { createAuditEvent, getFusionRunDetail, listFusionRuns, listRunEvents, updateFusionRunStatus } from "@fusion-harness/db";
-import { approvalRequestSchema, formatEntityId, fusionContinueRequestSchema, fusionRunRequestSchema } from "@fusion-harness/shared";
+import { getFusionRunDetail, listFusionRuns, listRunEvents } from "@fusion-harness/db";
+import { approvalRequestSchema, fusionContinueRequestSchema, fusionRunRequestSchema } from "@fusion-harness/shared";
 import { Hono } from "hono";
 import type { AppBindings } from "../env";
 import { recordApproval } from "../services/approvals";
 import { requireAccessIdentity } from "../services/auth";
-import { continueRun, createRunFromRequest, loadRunMessages, notifyFusionRunObject, reconcileFusionRun, RunCreationError } from "../services/runs";
+import {
+  cancelRun,
+  continueRun,
+  createRunFromRequest,
+  deleteRun,
+  loadRunMessages,
+  pauseRun,
+  reconcileFusionRun,
+  resumeRun,
+  RunCreationError,
+  RunLifecycleError,
+} from "../services/runs";
 
 export const fusionRunRoutes = new Hono<AppBindings>()
   .get("/", async (c) => {
@@ -64,33 +75,29 @@ export const fusionRunRoutes = new Hono<AppBindings>()
     await recordApproval(c.env, principal, runId, body);
     return c.json(await getFusionRunDetail(c.env.DB, principal.orgId, runId));
   })
+  .post("/:id/pause", async (c) => {
+    const principal = requireAccessIdentity(c.req.raw.headers);
+    return c.json(await pauseRun(c.env, principal, c.req.param("id")), 202);
+  })
+  .post("/:id/resume", async (c) => {
+    const principal = requireAccessIdentity(c.req.raw.headers);
+    return c.json(await resumeRun(c.env, principal, c.req.param("id")), 202);
+  })
   .post("/:id/cancel", async (c) => {
     const principal = requireAccessIdentity(c.req.raw.headers);
-    const runId = c.req.param("id");
-    const now = new Date().toISOString();
-
-    await updateFusionRunStatus(c.env.DB, principal.orgId, runId, "cancelled", now);
-    await createAuditEvent(c.env.DB, {
-      id: formatEntityId("audit", crypto.randomUUID()),
-      orgId: principal.orgId,
-      userId: principal.userId,
-      runId,
-      eventType: "run.cancelled",
-      severity: "warning",
-      createdAt: now,
-    });
-    await notifyFusionRunObject(c.env, runId, "/runner-event", {
-      type: "run.cancelled",
-      runId,
-      timestamp: now,
-      data: {},
-    });
-
-    return c.json(await getFusionRunDetail(c.env.DB, principal.orgId, runId));
+    return c.json(await cancelRun(c.env, principal, c.req.param("id")), 202);
+  })
+  .delete("/:id", async (c) => {
+    const principal = requireAccessIdentity(c.req.raw.headers);
+    await deleteRun(c.env, principal, c.req.param("id"));
+    return c.json({ status: "deleted" }, 202);
   });
 
 fusionRunRoutes.onError((error, c) => {
   if (error instanceof RunCreationError) {
+    return c.json({ error: error.message }, error.statusCode);
+  }
+  if (error instanceof RunLifecycleError) {
     return c.json({ error: error.message }, error.statusCode);
   }
   throw error;
