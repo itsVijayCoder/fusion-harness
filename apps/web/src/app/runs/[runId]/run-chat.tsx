@@ -4,6 +4,7 @@ import { extractReadableOutput, type FusionRunDetail, type RunEvent, type RunSta
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  RiArrowDownSLine,
   RiArrowRightLine,
   RiArrowUpLine,
   RiErrorWarningLine,
@@ -13,7 +14,9 @@ import {
   RiRobot2Line,
   RiUserLine,
 } from "@remixicon/react";
+import { FinalOutputModal } from "@/components/final-output-modal";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { ModelBadge } from "@/components/model-badge";
 import { OutputDrawer } from "@/components/output-drawer";
 import { StatusPill } from "@/components/product-ui";
 import { TopNav } from "@/features/fusion/top-nav";
@@ -66,6 +69,8 @@ export function RunChat({ run }: RunChatProps) {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | undefined>(undefined);
   const [drawer, setDrawer] = useState<DrawerState>(null);
+  const [showFinalModal, setShowFinalModal] = useState(false);
+  const [judgeExpanded, setJudgeExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const initialStatus = run.status;
@@ -124,13 +129,14 @@ export function RunChat({ run }: RunChatProps) {
   const showLiveOutput = finalText.trim().length > 0 || trace.final.status === "running";
   const showThinking = isRunActive && !showLiveOutput;
   const hasPanelOutputs = trace.panels.some((p) => p.text.trim().length > 0 || p.status === "running");
-  const hasJudgeOutput = judgeText.trim().length > 0 || trace.synthesis.status === "running";
+  const hasJudgeOutput = judgeText.trim().length > 0 || trace.synthesis.status !== "queued";
+  const hasFinalOutput = finalText.trim().length > 0 || trace.final.status !== "queued";
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, finalText, showThinking, trace.panels.length]);
+  }, [messages, finalText, showThinking, trace.panels.length, judgeExpanded]);
 
   async function handleContinue() {
     const message = continueMessage.trim();
@@ -161,26 +167,6 @@ export function RunChat({ run }: RunChatProps) {
       status: panel.status,
       content: panel.text,
       error: panel.error,
-    });
-  }
-
-  function openJudgeDrawer() {
-    setDrawer({
-      title: "Judge / Synthesis",
-      subtitle: "Analysis from the final-output model",
-      status: trace.synthesis.status,
-      content: judgeText,
-      error: trace.synthesis.error,
-    });
-  }
-
-  function openFinalDrawer() {
-    setDrawer({
-      title: "Final Output",
-      subtitle: "Fused result",
-      status: trace.final.status,
-      content: finalText,
-      error: trace.final.error || trace.synthesis.error,
     });
   }
 
@@ -231,14 +217,15 @@ export function RunChat({ run }: RunChatProps) {
 
           {showThinking ? <ThinkingIndicator trace={trace} /> : null}
 
-          {(hasPanelOutputs || hasJudgeOutput || !isRunActive) && !showThinking ? (
-            <OutputAccordions
+          {(hasPanelOutputs || hasJudgeOutput || hasFinalOutput || !isRunActive) && !showThinking ? (
+            <SourcesSection
               trace={trace}
               finalText={finalText}
               judgeText={judgeText}
+              judgeExpanded={judgeExpanded}
+              onToggleJudge={() => setJudgeExpanded((v) => !v)}
               onOpenPanel={openPanelDrawer}
-              onOpenJudge={openJudgeDrawer}
-              onOpenFinal={openFinalDrawer}
+              onOpenFinal={() => setShowFinalModal(true)}
             />
           ) : null}
 
@@ -282,6 +269,17 @@ export function RunChat({ run }: RunChatProps) {
         </div>
       </div>
 
+      {showFinalModal ? (
+        <FinalOutputModal
+          title="Final Output"
+          subtitle="Fused result"
+          status={trace.final.status}
+          content={finalText}
+          error={trace.final.error || trace.synthesis.error}
+          onClose={() => setShowFinalModal(false)}
+        />
+      ) : null}
+
       {drawer ? (
         <OutputDrawer
           title={drawer.title}
@@ -294,10 +292,7 @@ export function RunChat({ run }: RunChatProps) {
       ) : null}
 
       {showDetails ? (
-        <DetailsPanel
-          run={run}
-          onClose={() => setShowDetails(false)}
-        />
+        <DetailsPanel run={run} onClose={() => setShowDetails(false)} />
       ) : null}
     </div>
   );
@@ -308,13 +303,11 @@ function MessageBubble({
   content,
   error,
   isStreaming,
-  onOpenFull,
 }: {
   role: "user" | "assistant" | "system";
   content: string;
   error?: string;
   isStreaming?: boolean;
-  onOpenFull?: () => void;
 }) {
   const isUser = role === "user";
   const isSystem = role === "system";
@@ -342,26 +335,16 @@ function MessageBubble({
         {error ? (
           <p className="break-words text-destructive [overflow-wrap:anywhere]">{error}</p>
         ) : content ? (
-          <>
-            <div className="break-words [overflow-wrap:anywhere]">
-              {isUser ? (
-                <div className="whitespace-pre-wrap">{content}</div>
-              ) : (
-                <MarkdownRenderer content={content} />
-              )}
-              {isStreaming ? (
-                <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-foreground/60 align-middle" />
-              ) : null}
-            </div>
-            {onOpenFull && !isStreaming ? (
-              <button
-                onClick={onOpenFull}
-                className="mt-2 text-xs font-medium text-primary hover:text-primary/80"
-              >
-                View full output
-              </button>
+          <div className="break-words [overflow-wrap:anywhere]">
+            {isUser ? (
+              <div className="whitespace-pre-wrap">{content}</div>
+            ) : (
+              <MarkdownRenderer content={content} />
+            )}
+            {isStreaming ? (
+              <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-foreground/60 align-middle" />
             ) : null}
-          </>
+          </div>
         ) : null}
       </div>
     </div>
@@ -397,31 +380,33 @@ function currentPhaseLabel(trace: Trace): string {
   return "Thinking";
 }
 
-type OutputAccordionsProps = {
+type SourcesSectionProps = {
   trace: Trace;
   finalText: string;
   judgeText: string;
+  judgeExpanded: boolean;
+  onToggleJudge: () => void;
   onOpenPanel: (panel: PanelTrace) => void;
-  onOpenJudge: () => void;
   onOpenFinal: () => void;
 };
 
-function OutputAccordions({
+function SourcesSection({
   trace,
   finalText,
   judgeText,
+  judgeExpanded,
+  onToggleJudge,
   onOpenPanel,
-  onOpenJudge,
   onOpenFinal,
-}: OutputAccordionsProps) {
-  const panelStep = trace.panels.length > 0;
-  const judgeStep = judgeText.trim().length > 0 || trace.synthesis.status !== "queued";
-  const finalStep = finalText.trim().length > 0 || trace.final.status !== "queued";
+}: SourcesSectionProps) {
+  const hasPanels = trace.panels.length > 0;
+  const hasJudge = judgeText.trim().length > 0 || trace.synthesis.status !== "queued";
+  const hasFinal = finalText.trim().length > 0 || trace.final.status !== "queued";
 
   let stepCount = 0;
-  if (panelStep) stepCount++;
-  if (judgeStep) stepCount++;
-  if (finalStep) stepCount++;
+  if (hasPanels) stepCount++;
+  if (hasJudge) stepCount++;
+  if (hasFinal) stepCount++;
 
   let currentStep = 0;
 
@@ -436,7 +421,7 @@ function OutputAccordions({
         </span>
       </div>
 
-      {panelStep ? (
+      {hasPanels ? (
         <>
           {trace.panels.map((panel) => {
             currentStep++;
@@ -447,6 +432,7 @@ function OutputAccordions({
                 title={panel.modelId}
                 subtitle={[panel.adapter, panel.role].filter(Boolean).join(" · ") || "panel"}
                 status={panel.status}
+                adapter={panel.adapter}
                 onClick={() => onOpenPanel(panel)}
               />
             );
@@ -454,22 +440,23 @@ function OutputAccordions({
         </>
       ) : null}
 
-      {judgeStep ? (
+      {hasJudge ? (
         (() => {
           currentStep++;
           return (
-            <SourceRow
+            <JudgeAccordion
               step={currentStep}
-              title="Judge / Synthesis"
-              subtitle="Analysis from the final-output model"
               status={trace.synthesis.status}
-              onClick={onOpenJudge}
+              expanded={judgeExpanded}
+              onToggle={onToggleJudge}
+              text={judgeText}
+              error={trace.synthesis.error}
             />
           );
         })()
       ) : null}
 
-      {finalStep ? (
+      {hasFinal ? (
         (() => {
           currentStep++;
           return (
@@ -479,6 +466,7 @@ function OutputAccordions({
               subtitle="Fused result"
               status={trace.final.status}
               onClick={onOpenFinal}
+              isFinal
             />
           );
         })()
@@ -492,12 +480,16 @@ function SourceRow({
   title,
   subtitle,
   status,
+  adapter,
+  isFinal,
   onClick,
 }: {
   step: number;
   title: string;
   subtitle: string;
   status: string;
+  adapter?: string;
+  isFinal?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -508,6 +500,13 @@ function SourceRow({
       <span className="flex size-5 shrink-0 items-center justify-center rounded-md border border-border text-[10px] font-semibold text-muted-foreground">
         {step}
       </span>
+      {isFinal ? (
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+          <RiFileList3Line aria-hidden className="size-3.5" />
+        </span>
+      ) : (
+        <ModelBadge adapter={adapter} modelId={title} size="sm" />
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium text-foreground">{title}</p>
         <p className="truncate text-[11px] text-muted-foreground">{subtitle}</p>
@@ -515,6 +514,67 @@ function SourceRow({
       <StatusPill value={status} />
       <RiArrowRightLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />
     </button>
+  );
+}
+
+function JudgeAccordion({
+  step,
+  status,
+  expanded,
+  onToggle,
+  text,
+  error,
+}: {
+  step: number;
+  status: string;
+  expanded: boolean;
+  onToggle: () => void;
+  text: string;
+  error?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-card transition-colors",
+        expanded && "border-foreground/10",
+      )}
+    >
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left"
+      >
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-md border border-border text-[10px] font-semibold text-muted-foreground">
+          {step}
+        </span>
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+          <RiRobot2Line aria-hidden className="size-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-foreground">Judge / Synthesis</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {expanded ? "Tap to collapse" : "Detailed comparison report"}
+          </p>
+        </div>
+        <StatusPill value={status} />
+        <RiArrowDownSLine
+          aria-hidden
+          className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-150", expanded && "rotate-180")}
+        />
+      </button>
+      {expanded ? (
+        <div className="border-t border-border">
+          <div className="max-h-[400px] overflow-y-auto px-4 py-3">
+            {error ? (
+              <p className="break-words text-sm text-destructive">{error}</p>
+            ) : text.trim() ? (
+              <MarkdownRenderer content={text} />
+            ) : (
+              <p className="text-sm text-muted-foreground">Waiting for judge output.</p>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
