@@ -532,6 +532,8 @@ function JudgeAccordion({
   text: string;
   error?: string;
 }) {
+  const { jsonReport, markdownReport } = useMemo(() => splitJudgeContent(text), [text]);
+
   return (
     <div
       className={cn(
@@ -567,7 +569,17 @@ function JudgeAccordion({
             {error ? (
               <p className="break-words text-sm text-destructive">{error}</p>
             ) : text.trim() ? (
-              <MarkdownRenderer content={text} />
+              <div className="flex flex-col gap-4">
+                {jsonReport ? (
+                  <JudgeStructuredReport report={jsonReport} />
+                ) : null}
+                {markdownReport ? (
+                  <MarkdownRenderer content={markdownReport} />
+                ) : null}
+                {!jsonReport && !markdownReport ? (
+                  <MarkdownRenderer content={text} />
+                ) : null}
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">Waiting for judge output.</p>
             )}
@@ -575,6 +587,165 @@ function JudgeAccordion({
         </div>
       ) : null}
     </div>
+  );
+}
+
+type JudgeReport = {
+  consensus: string[];
+  contradictions: Array<{ topic: string; details: string; recommended_resolution: string }>;
+  missing_coverage: string[];
+  unique_insights: Array<{ model: string; insight: string }>;
+  risks: Array<{ risk: string; severity: string; mitigation: string }>;
+  confidence: number;
+  synthesis_strategy: string;
+};
+
+function splitJudgeContent(rawText: string): { jsonReport: JudgeReport | null; markdownReport: string } {
+  const trimmed = rawText.trim();
+  if (!trimmed) return { jsonReport: null, markdownReport: "" };
+
+  const jsonStart = trimmed.indexOf("{");
+  if (jsonStart < 0) return { jsonReport: null, markdownReport: trimmed };
+
+  let braceDepth = 0;
+  let jsonEnd = -1;
+  for (let i = jsonStart; i < trimmed.length; i++) {
+    if (trimmed[i] === "{") braceDepth++;
+    else if (trimmed[i] === "}") {
+      braceDepth--;
+      if (braceDepth === 0) {
+        jsonEnd = i;
+        break;
+      }
+    }
+  }
+
+  if (jsonEnd < 0) return { jsonReport: null, markdownReport: trimmed };
+
+  const jsonStr = trimmed.slice(jsonStart, jsonEnd + 1);
+  const markdownStr = trimmed.slice(jsonEnd + 1).trim();
+
+  let parsed: JudgeReport | null = null;
+  try {
+    parsed = JSON.parse(jsonStr) as JudgeReport;
+  } catch {
+    // If JSON parsing fails, treat the whole thing as markdown
+    return { jsonReport: null, markdownReport: trimmed };
+  }
+
+  return { jsonReport: parsed, markdownReport: markdownStr };
+}
+
+function JudgeStructuredReport({ report }: { report: JudgeReport }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {report.confidence !== undefined ? (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">Confidence</span>
+          <span className="text-sm font-medium text-primary">{(report.confidence * 100).toFixed(0)}%</span>
+        </div>
+      ) : null}
+
+      {report.consensus?.length ? (
+        <JudgeSection title="Consensus">
+          <ul className="flex flex-col gap-1">
+            {report.consensus.map((item, i) => (
+              <li key={i} className="flex gap-2 text-sm text-foreground">
+                <span className="text-primary">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </JudgeSection>
+      ) : null}
+
+      {report.contradictions?.length ? (
+        <JudgeSection title="Contradictions">
+          <div className="flex flex-col gap-2">
+            {report.contradictions.map((item, i) => (
+              <div key={i} className="rounded-lg border border-border bg-muted/30 p-2.5">
+                <p className="text-sm font-medium text-foreground">{item.topic}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{item.details}</p>
+                {item.recommended_resolution ? (
+                  <p className="mt-1 text-sm text-primary">→ {item.recommended_resolution}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </JudgeSection>
+      ) : null}
+
+      {report.unique_insights?.length ? (
+        <JudgeSection title="Unique Insights">
+          <div className="flex flex-col gap-1.5">
+            {report.unique_insights.map((item, i) => (
+              <div key={i} className="flex gap-2 text-sm">
+                <ModelBadge modelId={item.model} size="sm" />
+                <div className="min-w-0">
+                  <span className="font-medium text-foreground">{item.model}</span>
+                  <span className="text-muted-foreground"> — {item.insight}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </JudgeSection>
+      ) : null}
+
+      {report.risks?.length ? (
+        <JudgeSection title="Risks">
+          <div className="flex flex-col gap-1.5">
+            {report.risks.map((risk, i) => (
+              <div key={i} className="flex items-start gap-2 rounded-lg border border-border p-2">
+                <SeverityBadge severity={risk.severity} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground">{risk.risk}</p>
+                  {risk.mitigation ? (
+                    <p className="mt-0.5 text-sm text-muted-foreground">Mitigation: {risk.mitigation}</p>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </JudgeSection>
+      ) : null}
+
+      {report.missing_coverage?.length ? (
+        <JudgeSection title="Missing Coverage">
+          <ul className="flex flex-col gap-1">
+            {report.missing_coverage.map((item, i) => (
+              <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                <span className="text-muted-foreground">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </JudgeSection>
+      ) : null}
+    </div>
+  );
+}
+
+function JudgeSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function SeverityBadge({ severity }: { severity: string }) {
+  const normalized = severity.toLowerCase();
+  const color =
+    normalized === "high"
+      ? "bg-red-500/15 text-red-400 border-red-500/30"
+      : normalized === "medium"
+        ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+        : "bg-green-500/15 text-green-400 border-green-500/30";
+  return (
+    <span className={cn("shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase", color)}>
+      {normalized}
+    </span>
   );
 }
 
