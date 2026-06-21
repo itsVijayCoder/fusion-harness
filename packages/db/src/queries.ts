@@ -1129,7 +1129,7 @@ function runnerModelScore(model: ModelRef, orgId: string) {
 
 function isUserVisibleModel(model: Pick<ModelRef, "model" | "source">) {
   if (model.model === "default") return true;
-  return model.source !== "custom" && model.source !== "suggested" && model.source !== "fallback";
+  return model.source !== "custom" && model.source !== "suggested";
 }
 
 function mapFusionRun(row: FusionRunRow): FusionRunSummary {

@@ -71,7 +71,7 @@ func TestListModelsUsesLiveModelListing(t *testing.T) {
 	}
 }
 
-func TestListModelsFallsBackToOnlyDefaultConfig(t *testing.T) {
+func TestListModelsFallsBackToFallbackModels(t *testing.T) {
 	dir := t.TempDir()
 	workspace := t.TempDir()
 	writeExecutable(
@@ -97,11 +97,58 @@ func TestListModelsFallsBackToOnlyDefaultConfig(t *testing.T) {
 		[]string{workspace},
 		[]string{dir},
 	)
-	if len(models) != 1 {
-		t.Fatalf("expected only default model fallback, got %#v", models)
+	if len(models) != 3 {
+		t.Fatalf("expected default + 2 fallback models, got %d: %#v", len(models), models)
 	}
-	if models[0].ID != "cursor-agent/default" || models[0].Availability != "detected" {
-		t.Fatalf("expected detected default model, got %#v", models[0])
+	for _, m := range models {
+		if m.Source != "fallback" {
+			t.Fatalf("expected source=fallback for %q, got %q", m.ID, m.Source)
+		}
+		if m.Availability != "detected" {
+			t.Fatalf("expected availability=detected for %q, got %q", m.ID, m.Availability)
+		}
+	}
+	if models[0].ID != "cursor-agent/default" {
+		t.Fatalf("expected default model first, got %q", models[0].ID)
+	}
+}
+
+func TestListModelsUsesFallbackModelsWhenNoListArgs(t *testing.T) {
+	dir := t.TempDir()
+	workspace := t.TempDir()
+	writeExecutable(
+		t,
+		dir,
+		"claude",
+		"#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then printf 'claude 1.0.0\\n'; exit 0; fi\n",
+	)
+	t.Setenv("PATH", "")
+
+	models := listModels(
+		context.Background(),
+		[]AgentDef{
+			{
+				ID:            "claude",
+				Name:          "Claude Code",
+				Binary:        "claude",
+				VersionArgs:   []string{"--version"},
+				Provider:      "anthropic",
+				FallbackModels: models("sonnet", "opus", "haiku"),
+			},
+		},
+		[]string{workspace},
+		[]string{dir},
+	)
+	if len(models) != 4 {
+		t.Fatalf("expected default + 3 fallback models, got %d: %#v", len(models), models)
+	}
+	for _, m := range models {
+		if m.Source != "fallback" {
+			t.Fatalf("expected source=fallback for %q, got %q", m.ID, m.Source)
+		}
+		if m.Availability != "detected" {
+			t.Fatalf("expected availability=detected for %q, got %q", m.ID, m.Availability)
+		}
 	}
 }
 

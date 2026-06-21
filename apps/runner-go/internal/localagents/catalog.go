@@ -21,6 +21,7 @@ type AgentDef struct {
 	VersionArgs      []string
 	ListModelsArgs   []string
 	ListModelsParser func(string) []ModelOption
+	FetchModels      func(ctx context.Context, def AgentDef, path string, allowedRoots []string) ([]ModelOption, error)
 	FallbackModels   []ModelOption
 	Provider         string
 }
@@ -360,11 +361,20 @@ func listModels(ctx context.Context, defs []AgentDef, allowedRoots []string, too
 		if !tool.Found {
 			continue
 		}
-		source := "detected"
-		options := []ModelOption{model("default", "Default (CLI config)")}
+		source := "fallback"
+		options := def.FallbackModels
+		if len(options) == 0 {
+			options = []ModelOption{model("default", "Default (CLI config)")}
+		}
 		if len(def.ListModelsArgs) > 0 {
 			if liveOptions := listLiveModels(ctx, def, tool.Path, allowedRoots); len(liveOptions) > 0 {
 				options = liveOptions
+				source = "live"
+			}
+		}
+		if def.FetchModels != nil {
+			if fetched, err := def.FetchModels(ctx, def, tool.Path, allowedRoots); err == nil && len(fetched) > 0 {
+				options = fetched
 				source = "live"
 			}
 		}
@@ -516,7 +526,7 @@ func modelRef(def AgentDef, option ModelOption, source string) adapters.ModelRef
 		DisplayName:  displayName(option),
 		AuthMode:     "cli_session",
 		Availability: availability,
-		Source:       "live",
+		Source:       source,
 		Capabilities: adapters.ModelCapability{
 			Streaming:    true,
 			Tools:        true,
