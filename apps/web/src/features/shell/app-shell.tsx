@@ -5,6 +5,7 @@ import {
   RiCodeSSlashLine,
   RiDashboardLine,
   RiGitBranchLine,
+  RiGitPullRequestLine,
   RiInformationLine,
   RiKey2Line,
   RiMoonLine,
@@ -35,6 +36,7 @@ const navGroups = [
     label: "Application",
     items: [
       { href: "/workspaces", label: "Workspaces", icon: RiCodeSSlashLine },
+      { href: "/pr-reviews", label: "PR Reviews", icon: RiGitPullRequestLine },
       { href: "/settings/team", label: "Team", icon: RiShieldCheckLine },
       { href: "/settings/api", label: "API", icon: RiKey2Line },
       { href: "/settings/mcp", label: "MCP", icon: RiArchiveLine },

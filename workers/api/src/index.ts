@@ -5,9 +5,12 @@ import { artifactRoutes } from "./routes/artifacts";
 import { approvalRoutes } from "./routes/approvals";
 import { dashboardRoutes } from "./routes/dashboard";
 import { fusionRunRoutes } from "./routes/fusion-runs";
+import { githubRoutes } from "./routes/github";
+import { githubWebhookRoutes } from "./routes/github-webhook";
 import { healthRoutes } from "./routes/health";
 import { modelRoutes } from "./routes/models";
 import { openAiRoutes } from "./routes/openai-compatible";
+import { prReviewRoutes } from "./routes/pr-reviews";
 import { runnerRoutes } from "./routes/runners";
 import { workspaceRoutes } from "./routes/workspaces";
 import type { AppBindings } from "./env";
@@ -18,7 +21,7 @@ app.use(
   "*",
   cors({
     origin: (origin, c) => origin || c.env.PUBLIC_APP_URL,
-    allowHeaders: ["authorization", "content-type", "x-fusion-dev-email", "x-fusion-dev-name", "x-fusion-org-id", "x-fusion-org-name"],
+    allowHeaders: ["authorization", "content-type", "x-fusion-dev-email", "x-fusion-dev-name", "x-fusion-org-id", "x-fusion-org-name", "x-github-event", "x-github-delivery", "x-hub-signature-256"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   }),
@@ -32,6 +35,9 @@ app.route("/api/fusion/runs", fusionRunRoutes);
 app.route("/api/artifacts", artifactRoutes);
 app.route("/api/approvals", approvalRoutes);
 app.route("/api/workspaces", workspaceRoutes);
+app.route("/api/github", githubRoutes);
+app.route("/api/github", githubWebhookRoutes);
+app.route("/api/pr-reviews", prReviewRoutes);
 app.route("/v1", openAiRoutes);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));

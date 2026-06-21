@@ -11,7 +11,15 @@ export type EntityPrefix =
   | "artifact"
   | "approval"
   | "event"
-  | "audit";
+  | "audit"
+  | "gh_install"
+  | "gh_repo"
+  | "gh_link"
+  | "gh_pr"
+  | "gh_subject"
+  | "gh_webhook"
+  | "prrev_run"
+  | "prrev_comment";
 
 export function formatEntityId(prefix: EntityPrefix, id: string) {
   return `${prefix}_${id}`;

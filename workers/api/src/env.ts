@@ -8,6 +8,10 @@ export type Env = {
   FUSION_WORKFLOW: unknown;
   ENVIRONMENT: string;
   PUBLIC_APP_URL: string;
+  GITHUB_APP_ID: string;
+  GITHUB_APP_PRIVATE_KEY: string;
+  GITHUB_WEBHOOK_SECRET: string;
+  GITHUB_APP_SLUG?: string;
 };
 
 export type AppBindings = {
