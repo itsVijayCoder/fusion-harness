@@ -52,25 +52,35 @@ Find the **App ID** on the app's general settings page (it's a numeric ID like `
 
 ## 4. Configure Worker Secrets
 
-Set the following secrets on your Cloudflare Worker:
+> **Important:** Run all `wrangler` commands from the `workers/api/` directory, not the repo root. The `wrangler.jsonc` config lives there.
+
+Set the following secrets on your Cloudflare Worker (run from `workers/api/`):
 
 ```bash
-# Using wrangler CLI
-wrangler secret put GITHUB_APP_ID --env production
-# Enter the numeric App ID
+cd workers/api
 
-wrangler secret put GITHUB_APP_PRIVATE_KEY --env production
-# Paste the full contents of the .pem file
+# Set each secret — wrangler will prompt you to enter the value
+npx wrangler secret put GITHUB_APP_ID
+# Enter the numeric App ID (e.g. 123456)
 
-wrangler secret put GITHUB_WEBHOOK_SECRET --env production
+npx wrangler secret put GITHUB_APP_PRIVATE_KEY
+# Paste the full contents of the .pem file including BEGIN/END lines
+
+npx wrangler secret put GITHUB_WEBHOOK_SECRET
 # Enter the webhook secret you generated in step 1
 ```
 
-For local development, add these to `.dev.vars`:
+> **Note:** Do NOT use `--env production` — the worker config uses the default environment (no named envs are defined).
 
-```
+For local development, create `workers/api/.dev.vars` (already gitignored):
+
+```bash
+# workers/api/.dev.vars
 GITHUB_APP_ID=123456
-GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n"
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
+MIIE...
+-----END RSA PRIVATE KEY-----
+"
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
 ```
 
