@@ -5,6 +5,7 @@ import type {
   WorkspaceRef,
 } from "@fusion-harness/shared";
 import Link from "next/link";
+import { RiAddLine } from "@remixicon/react";
 import { Button } from "@/components/ui/button";
 import { DataNotice, EmptyState, PageHeader, Section, StatusPill } from "@/components/product-ui";
 import { apiGet } from "@/lib/api";
@@ -42,6 +43,11 @@ export default async function GitHubSettingsPage() {
     apiGet<WorkspacesResponse>("/api/workspaces", { data: [] }),
   ]);
 
+  const appSlug = status.data.appSlug;
+  const installUrl = appSlug
+    ? `https://github.com/apps/${appSlug}/installations/new`
+    : null;
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
@@ -49,6 +55,14 @@ export default async function GitHubSettingsPage() {
         description="Connect the Fusion GitHub App, manage repository links, reviewer mappings, and auto-review policies."
         actions={
           <div className="flex gap-2">
+            {installUrl ? (
+              <Button asChild variant="default" size="sm">
+                <a href={installUrl} target="_blank" rel="noreferrer">
+                  <RiAddLine aria-hidden className="size-4" />
+                  Install on GitHub
+                </a>
+              </Button>
+            ) : null}
             <GitHubActions />
             <Button asChild variant="secondary" size="sm">
               <Link href="/pr-reviews">Open PR Reviews</Link>
@@ -79,14 +93,26 @@ export default async function GitHubSettingsPage() {
                 </div>
               </dl>
               {status.data.htmlUrl ? (
-                <Link
-                  href={status.data.htmlUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-primary hover:underline"
-                >
-                  View on GitHub
-                </Link>
+                <div className="flex items-center gap-4">
+                  <Link
+                    href={status.data.htmlUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    View on GitHub
+                  </Link>
+                  {installUrl ? (
+                    <a
+                      href={installUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Install on account/org →
+                    </a>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           ) : (
@@ -136,7 +162,17 @@ export default async function GitHubSettingsPage() {
         ) : (
           <EmptyState
             title="No installations found"
-            description="Install the Fusion GitHub App on a repository or organization, then click Sync."
+            description="Install the Fusion GitHub App on your user account or organization to start reviewing PRs."
+            action={
+              installUrl ? (
+                <Button asChild variant="default" size="sm">
+                  <a href={installUrl} target="_blank" rel="noreferrer">
+                    <RiAddLine aria-hidden className="size-4" />
+                    Install on GitHub
+                  </a>
+                </Button>
+              ) : null
+            }
           />
         )}
       </Section>
