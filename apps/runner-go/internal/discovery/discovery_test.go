@@ -3,6 +3,7 @@ package discovery
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -178,6 +179,73 @@ func TestWellKnownUserToolchainBinsScansNvmVersions(t *testing.T) {
 	}
 	if !dirSet[filepath.Join(nvmBase, "v22.0.0", "bin")] {
 		t.Errorf("expected nvm v22.0.0 bin dir in toolchain bins")
+	}
+}
+
+func TestTryResolveCodexNativeBinaryEmptyPath(t *testing.T) {
+	if result := TryResolveCodexNativeBinary(""); result != "" {
+		t.Fatalf("expected empty result for empty path, got %q", result)
+	}
+}
+
+func TestTryResolveCodexNativeBinaryFindsNative(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := filepath.Join(root, "node_modules", "@openai", "codex-"+runtime.GOOS+"-"+runtime.GOARCH)
+	triple := codexNativeTargetTriple()
+	nativeDir := filepath.Join(pkgDir, "vendor", triple, "codex")
+	if err := os.MkdirAll(nativeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	nativePath := filepath.Join(nativeDir, "codex")
+	if runtime.GOOS == "windows" {
+		nativePath += ".exe"
+	}
+	if err := os.WriteFile(nativePath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	wrapperPath := filepath.Join(root, "bin", "codex")
+	if err := os.MkdirAll(filepath.Dir(wrapperPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(wrapperPath, []byte("#!/usr/bin/env node\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result := TryResolveCodexNativeBinary(wrapperPath)
+	if result == "" {
+		t.Fatal("expected to find native codex binary")
+	}
+	if result != nativePath {
+		t.Fatalf("expected %q, got %q", nativePath, result)
+	}
+}
+
+func TestTryResolveCodexNativeBinaryReturnsEmptyWhenNoNative(t *testing.T) {
+	root := t.TempDir()
+	wrapperPath := filepath.Join(root, "bin", "codex")
+	if err := os.MkdirAll(filepath.Dir(wrapperPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result := TryResolveCodexNativeBinary(wrapperPath)
+	if result != "" {
+		t.Fatalf("expected empty result when no native binary exists, got %q", result)
+	}
+}
+
+func TestCodexNativeTargetTriple(t *testing.T) {
+	triple := codexNativeTargetTriple()
+	if triple == "" {
+		t.Fatal("expected non-empty target triple")
+	}
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		if triple != "aarch64-apple-darwin" {
+			t.Fatalf("expected aarch64-apple-darwin, got %q", triple)
+		}
 	}
 }
 

@@ -422,13 +422,34 @@ func detect(ctx context.Context, def AgentDef, toolDirs []string) discovery.Tool
 	if len(versionArgs) == 0 {
 		versionArgs = []string{"--version"}
 	}
-	return discovery.DetectCommandWithVersionLookup(ctx, discovery.CommandLookup{
+	tool := discovery.DetectCommandWithLookup(discovery.CommandLookup{
 		Name:             def.ID,
 		Binary:           def.Binary,
 		FallbackBinaries: def.FallbackBinaries,
 		EnvOverride:      def.EnvOverride,
 		ExtraDirs:        toolDirs,
-	}, versionArgs...)
+	})
+	if !tool.Found {
+		return tool
+	}
+	if def.ID == "codex" {
+		if nativePath := discovery.TryResolveCodexNativeBinary(tool.Path); nativePath != "" {
+			tool.Path = nativePath
+			if tool.Metadata == nil {
+				tool.Metadata = map[string]any{}
+			}
+			tool.Metadata["codex_native"] = true
+		}
+	}
+	version, err := discovery.ProbeVersion(ctx, tool.Path, versionArgs...)
+	if err != nil {
+		tool.Status = "detected"
+		tool.Error = err.Error()
+		return tool
+	}
+	tool.Version = version
+	tool.Status = "verified"
+	return tool
 }
 
 func listLiveModels(ctx context.Context, def AgentDef, path string, allowedRoots []string) []ModelOption {

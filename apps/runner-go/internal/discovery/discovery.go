@@ -163,6 +163,10 @@ func WellKnownUserToolchainBins() []string {
 }
 
 func commandVersion(parent context.Context, path string, args ...string) (string, error) {
+	return ProbeVersion(parent, path, args...)
+}
+
+func ProbeVersion(parent context.Context, path string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
 
@@ -255,4 +259,119 @@ func dedupeStrings(values []string) []string {
 		deduped = append(deduped, value)
 	}
 	return deduped
+}
+
+func codexNativeTargetTriple() string {
+	switch {
+	case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64":
+		return "aarch64-apple-darwin"
+	case runtime.GOOS == "darwin" && runtime.GOARCH == "amd64":
+		return "x86_64-apple-darwin"
+	case runtime.GOOS == "linux" && runtime.GOARCH == "arm64":
+		return "aarch64-unknown-linux-musl"
+	case runtime.GOOS == "linux" && runtime.GOARCH == "amd64":
+		return "x86_64-unknown-linux-musl"
+	case runtime.GOOS == "windows" && runtime.GOARCH == "arm64":
+		return "aarch64-pc-windows-msvc"
+	case runtime.GOOS == "windows" && runtime.GOARCH == "amd64":
+		return "x86_64-pc-windows-msvc"
+	default:
+		return runtime.GOOS + "-" + runtime.GOARCH
+	}
+}
+
+func codexNativePackageSuffix() string {
+	return runtime.GOOS + "-" + runtime.GOARCH
+}
+
+func TryResolveCodexNativeBinary(wrapperPath string) string {
+	if wrapperPath == "" {
+		return ""
+	}
+	packageSuffix := codexNativePackageSuffix()
+	targetTriple := codexNativeTargetTriple()
+
+	roots := codexSearchRoots(wrapperPath)
+	for _, root := range roots {
+		for _, candidate := range codexNativeCandidates(root, packageSuffix, targetTriple) {
+			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+				if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
+					continue
+				}
+				return candidate
+			}
+		}
+	}
+	return ""
+}
+
+func codexSearchRoots(wrapperPath string) []string {
+	seen := map[string]bool{}
+	roots := []string{}
+	current := filepath.Dir(wrapperPath)
+	for {
+		if seen[current] {
+			break
+		}
+		seen[current] = true
+		roots = append(roots, current)
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+	if realPath, err := filepath.EvalSymlinks(wrapperPath); err == nil && realPath != wrapperPath {
+		current = filepath.Dir(realPath)
+		for {
+			if seen[current] {
+				break
+			}
+			seen[current] = true
+			roots = append(roots, current)
+			parent := filepath.Dir(current)
+			if parent == current {
+				break
+			}
+			current = parent
+		}
+	}
+	return roots
+}
+
+func codexNativeCandidates(root, packageSuffix, targetTriple string) []string {
+	scoped := filepath.Join(root, "node_modules", "@openai")
+	packageDirs := []string{filepath.Join(scoped, "codex-"+packageSuffix)}
+	if entries, err := os.ReadDir(scoped); err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() && strings.HasPrefix(entry.Name(), "codex-") {
+				dir := filepath.Join(scoped, entry.Name())
+				found := false
+				for _, existing := range packageDirs {
+					if existing == dir {
+						found = true
+						break
+					}
+				}
+				if !found {
+					packageDirs = append(packageDirs, dir)
+				}
+			}
+		}
+	}
+
+	var candidates []string
+	for _, dir := range packageDirs {
+		binaryName := "codex"
+		if runtime.GOOS == "windows" {
+			binaryName = "codex.exe"
+		}
+		candidates = append(candidates,
+			filepath.Join(dir, "vendor", targetTriple, "codex", binaryName),
+			filepath.Join(dir, binaryName),
+			filepath.Join(dir, "bin", binaryName),
+			filepath.Join(dir, "vendor", "codex", binaryName),
+		)
+	}
+	return candidates
 }
