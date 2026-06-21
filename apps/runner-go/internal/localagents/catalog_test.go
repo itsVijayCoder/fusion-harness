@@ -2,6 +2,7 @@ package localagents
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -166,6 +167,88 @@ func TestParseCodexDebugModels(t *testing.T) {
 	}
 	if models[2].ID != "o4-mini" {
 		t.Fatalf("expected id fallback, got %#v", models[2])
+	}
+}
+
+func TestListModelsUsesFetchModels(t *testing.T) {
+	dir := t.TempDir()
+	workspace := t.TempDir()
+	writeExecutable(
+		t,
+		dir,
+		"kiro",
+		"#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then printf 'kiro 1.0.0\\n'; exit 0; fi\n",
+	)
+	t.Setenv("PATH", "")
+
+	called := false
+	defs := []AgentDef{
+		{
+			ID:          "kiro",
+			Name:        "Kiro CLI",
+			Binary:      "kiro",
+			VersionArgs: []string{"--version"},
+			FetchModels: func(ctx context.Context, def AgentDef, path string, allowedRoots []string) ([]ModelOption, error) {
+				called = true
+				return []ModelOption{
+					model("default", "Default (CLI config)"),
+					model("claude-sonnet-4", "Claude Sonnet 4"),
+					model("claude-opus-4", "Claude Opus 4"),
+				}, nil
+			},
+			FallbackModels: models("default"),
+		},
+	}
+
+	models := listModels(context.Background(), defs, []string{workspace}, []string{dir})
+	if !called {
+		t.Fatal("expected FetchModels to be called")
+	}
+	if len(models) != 3 {
+		t.Fatalf("expected 3 models from FetchModels, got %d: %#v", len(models), models)
+	}
+	for _, m := range models {
+		if m.Source != "live" {
+			t.Fatalf("expected source=live for %q, got %q", m.ID, m.Source)
+		}
+		if m.Availability != "listed" {
+			t.Fatalf("expected availability=listed for %q, got %q", m.ID, m.Availability)
+		}
+	}
+}
+
+func TestListModelsFallsBackWhenFetchModelsErrors(t *testing.T) {
+	dir := t.TempDir()
+	workspace := t.TempDir()
+	writeExecutable(
+		t,
+		dir,
+		"kiro",
+		"#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then printf 'kiro 1.0.0\\n'; exit 0; fi\n",
+	)
+	t.Setenv("PATH", "")
+
+	defs := []AgentDef{
+		{
+			ID:          "kiro",
+			Name:        "Kiro CLI",
+			Binary:      "kiro",
+			VersionArgs: []string{"--version"},
+			FetchModels: func(ctx context.Context, def AgentDef, path string, allowedRoots []string) ([]ModelOption, error) {
+				return nil, fmt.Errorf("acp handshake failed")
+			},
+			FallbackModels: models("sonnet", "opus"),
+		},
+	}
+
+	models := listModels(context.Background(), defs, []string{workspace}, []string{dir})
+	if len(models) != 3 {
+		t.Fatalf("expected default + 2 fallback models, got %d: %#v", len(models), models)
+	}
+	for _, m := range models {
+		if m.Source != "fallback" {
+			t.Fatalf("expected source=fallback for %q, got %q", m.ID, m.Source)
+		}
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/asthrix/fusion-harness/apps/runner-go/internal/acp"
 	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters"
 	"github.com/asthrix/fusion-harness/apps/runner-go/internal/discovery"
 	"github.com/asthrix/fusion-harness/apps/runner-go/internal/executors/host"
@@ -180,6 +181,7 @@ func Catalog() []AgentDef {
 			Binary:      "hermes",
 			EnvOverride: "HERMES_BIN",
 			VersionArgs: []string{"--version"},
+			FetchModels: acpFetchModels([]string{"acp", "--accept-hooks"}),
 			FallbackModels: labels(
 				model("grok-4.3", "grok-4.3 (xAI default)"),
 				model("openai-codex:gpt-5.5", "gpt-5.5 (openai-codex)"),
@@ -220,6 +222,7 @@ func Catalog() []AgentDef {
 			Binary:      "devin",
 			EnvOverride: "DEVIN_BIN",
 			VersionArgs: []string{"--version"},
+			FetchModels: acpFetchModels([]string{"--permission-mode", "dangerous", "--respect-workspace-trust", "false", "acp"}),
 			FallbackModels: models(
 				"adaptive",
 				"swe",
@@ -264,6 +267,7 @@ func Catalog() []AgentDef {
 			Binary:      "kiro-cli",
 			EnvOverride: "KIRO_BIN",
 			VersionArgs: []string{"--version"},
+			FetchModels: acpFetchModels([]string{"acp"}),
 			FallbackModels: labels(
 				model("default", "Default (CLI config)"),
 			),
@@ -274,6 +278,7 @@ func Catalog() []AgentDef {
 			Binary:      "kilo",
 			EnvOverride: "KILO_BIN",
 			VersionArgs: []string{"--version"},
+			FetchModels: acpFetchModels([]string{"acp"}),
 			FallbackModels: labels(
 				model("default", "Default (CLI config)"),
 			),
@@ -284,6 +289,7 @@ func Catalog() []AgentDef {
 			Binary:      "vibe-acp",
 			EnvOverride: "VIBE_BIN",
 			VersionArgs: []string{"--version"},
+			FetchModels: acpFetchModels([]string{}),
 			FallbackModels: labels(
 				model("default", "Default (CLI config)"),
 			),
@@ -294,6 +300,7 @@ func Catalog() []AgentDef {
 			Binary:      "traecli",
 			EnvOverride: "TRAE_CLI_BIN",
 			VersionArgs: []string{"--version"},
+			FetchModels: acpFetchModels([]string{"acp", "serve"}),
 			FallbackModels: labels(
 				model("default", "Default (CLI config)"),
 			),
@@ -323,6 +330,7 @@ func Catalog() []AgentDef {
 			EnvOverride:      "REASONIX_BIN",
 			VersionArgs:      []string{"--version"},
 			Provider:         "deepseek",
+			FetchModels:      acpFetchModels([]string{"acp"}),
 			FallbackModels:   models("deepseek-v4-pro", "deepseek-v4-flash"),
 		},
 		{
@@ -440,6 +448,27 @@ func listLiveModels(ctx context.Context, def AgentDef, path string, allowedRoots
 		return def.ListModelsParser(result.Stdout)
 	}
 	return ParseModelLines(result.Stdout)
+}
+
+func acpFetchModels(args []string) func(ctx context.Context, def AgentDef, path string, allowedRoots []string) ([]ModelOption, error) {
+	return func(ctx context.Context, def AgentDef, path string, allowedRoots []string) ([]ModelOption, error) {
+		workingDir, _, cleanup := acp.NeutralWorkspace(def.ID, allowedRoots)
+		defer cleanup()
+		acpOpts := acp.DetectOptions{
+			Bin:  path,
+			Args: args,
+			Cwd:  workingDir,
+		}
+		acpModels, err := acp.DetectModels(ctx, acpOpts)
+		if err != nil {
+			return nil, err
+		}
+		options := make([]ModelOption, 0, len(acpModels))
+		for _, m := range acpModels {
+			options = append(options, ModelOption{ID: m.ID, DisplayName: m.DisplayName})
+		}
+		return options, nil
+	}
 }
 
 func ParseModelLines(output string) []ModelOption {
