@@ -14,7 +14,7 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const STORAGE_KEY = "fusion-harness:theme";
 
-function getInitialTheme(): Theme {
+function getStoredTheme(): Theme {
   if (typeof window === "undefined") return "dark";
   try {
     return (localStorage.getItem(STORAGE_KEY) as Theme) ?? "dark";
@@ -23,20 +23,24 @@ function getInitialTheme(): Theme {
   }
 }
 
+function applyTheme(theme: Theme) {
+  if (typeof document === "undefined") return;
+  document.documentElement.classList.toggle("dark", theme === "dark");
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  const [theme, setThemeState] = useState<Theme>("dark");
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
-  }, [theme]);
+    const storedTheme = getStoredTheme();
+    applyTheme(storedTheme);
+    const timer = window.setTimeout(() => setThemeState(storedTheme), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
+    applyTheme(next);
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
@@ -47,6 +51,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = useCallback(() => {
     setThemeState((current) => {
       const next = current === "dark" ? "light" : "dark";
+      applyTheme(next);
       try {
         localStorage.setItem(STORAGE_KEY, next);
       } catch {

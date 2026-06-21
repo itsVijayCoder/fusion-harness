@@ -176,15 +176,16 @@ export function ProviderLogo({
   const label = title ?? providerLabel(id ?? normalized);
   const initials = providerInitials(id ?? normalized);
   const wrapperStyle = {
-    "--provider-logo-size": `${pixels}px`,
-    "--provider-logo-mark": `${markSize}px`,
+    width: pixels,
+    height: pixels,
+    flexBasis: pixels,
   } as CSSProperties;
 
   return (
     <span
       className={cn(
-        "provider-logo",
-        framed ? "provider-logo--framed" : "provider-logo--bare",
+        "inline-flex shrink-0 items-center justify-center leading-none text-foreground",
+        framed ? "rounded-lg border border-border bg-card shadow-xs" : "bg-transparent",
         className,
       )}
       style={wrapperStyle}
@@ -194,10 +195,18 @@ export function ProviderLogo({
       {asset ? (
         asset.mono ? (
           <span
-            className="provider-logo__mono"
+            className="block bg-current"
             style={{
+              width: markSize,
+              height: markSize,
               WebkitMaskImage: `url("${asset.src}")`,
+              WebkitMaskPosition: "center",
+              WebkitMaskRepeat: "no-repeat",
+              WebkitMaskSize: "contain",
               maskImage: `url("${asset.src}")`,
+              maskPosition: "center",
+              maskRepeat: "no-repeat",
+              maskSize: "contain",
             }}
           />
         ) : (
@@ -206,13 +215,19 @@ export function ProviderLogo({
             alt=""
             width={markSize}
             height={markSize}
-            className="provider-logo__image"
+            className="block object-contain"
+            style={{ width: markSize, height: markSize }}
             draggable={false}
             unoptimized
           />
         )
       ) : (
-        <span className="provider-logo__fallback">{initials}</span>
+        <span
+          className="font-mono font-bold tracking-normal text-muted-foreground"
+          style={{ fontSize: Math.max(9, Math.round(pixels * 0.32)) }}
+        >
+          {initials}
+        </span>
       )}
     </span>
   );

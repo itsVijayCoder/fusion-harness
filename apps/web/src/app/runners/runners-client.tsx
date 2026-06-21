@@ -3,8 +3,9 @@
 import { RiArrowLeftLine } from "@remixicon/react";
 import type { ModelRef, RunnerRef, ToolKind, ToolRef } from "@fusion-harness/shared";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ProviderLogo, providerLabel } from "@/components/provider-logo";
+import { Button } from "@/components/ui/button";
 import { apiUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -234,30 +235,34 @@ export function RunnersClient() {
   const modelCount = models.data.length;
 
   return (
-    <div className="od-workspace">
-      <div className="od-container od-stack">
-        <header>
-          <div className="od-topline">
-            <div className="od-title-tab">Local Agents</div>
-            <Link className="od-action" href="/chat">
-              <RiArrowLeftLine aria-hidden className="size-4" />
+    <div className="min-h-full overflow-x-clip bg-background text-foreground">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-8 sm:px-6 lg:px-8">
+        <header className="border-b border-border pb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="inline-flex min-h-10 w-fit items-center border-b-2 border-primary pr-12 text-sm font-semibold text-foreground">
+              Local Agents
+            </div>
+            <Button asChild variant="outline" size="sm" className="w-fit rounded-md">
+              <Link href="/chat">
+                <RiArrowLeftLine aria-hidden data-icon="inline-start" />
               Back to Chat
-            </Link>
+              </Link>
+            </Button>
           </div>
-          <p className="od-page-copy">
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
             Fusion Runner ships with the app. Local agents are detected when their CLI is installed on the host and the runner registers its discovery report.
           </p>
         </header>
 
         {state.source === "fallback" ? (
-          <div className="od-notice">Showing local fallback data{state.error ? `: ${state.error}` : "."}</div>
+          <Notice>Showing local fallback data{state.error ? `: ${state.error}` : "."}</Notice>
         ) : null}
         {state.source === "loading" ? (
-          <div className="od-notice">Loading signed-in runner inventory...</div>
+          <Notice>Loading signed-in runner inventory...</Notice>
         ) : null}
 
-        <section className="od-section">
-          <div className="od-metric-grid">
+        <section className="flex flex-col gap-3">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Detected Agents" value={detectedCount} detail={`${localAgents.length} known surfaces`} />
             <MetricCard label="Online Runners" value={onlineRunners} detail={`${runners.data.length} registered runners`} />
             <MetricCard label="Models" value={modelCount} detail="discovered across adapters" />
@@ -267,12 +272,9 @@ export function RunnersClient() {
 
         <RunnerBootstrap hasRunner={runners.data.length > 0} />
 
-        <section className="od-section">
-          <div className="od-section-head">
-            <h2 className="od-section-title">Detected</h2>
-            <span className="od-section-meta">{detectedCount} available</span>
-          </div>
-          <div className="od-card-grid">
+        <section className="flex flex-col gap-3">
+          <SectionHeader title="Detected" meta={`${detectedCount} available`} />
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {localAgents.map((agent) => {
               const tool = findAgentTool(runners.data, agent);
               const detected = isAgentDetected(runners.data, models.data, agent);
@@ -280,22 +282,27 @@ export function RunnersClient() {
               const toolStatus = tool?.status ?? (detected ? "detected" : "not detected");
 
               return (
-                <article key={agent.id} className={cn("od-agent-card", detected && "is-detected")}>
-                  <div className="od-agent-main">
+                <article
+                  key={agent.id}
+                  className={cn(
+                    "relative grid min-h-22 grid-cols-1 gap-3 rounded-lg border bg-card p-3 shadow-xs transition-colors hover:border-input sm:grid-cols-[minmax(0,1fr)_auto]",
+                    detected && "border-primary/30 shadow-sm before:absolute before:inset-y-3 before:left-0 before:w-0.5 before:rounded-r-full before:bg-primary",
+                    !detected && "border-border",
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
                     <ProviderLogo id={agent.id} size="lg" />
-                    <div className="od-agent-body">
-                      <div className="od-card-title truncate">{agent.name}</div>
-                      <div className="od-card-description truncate">{agent.description}</div>
-                      <div className="od-card-meta">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-foreground">{agent.name}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">{agent.description}</div>
+                      <div className="mt-1 text-xs tabular-nums text-muted-foreground">
                         {providerLabel(agent.adapter ?? agent.id)}
                         {modelCount ? ` · ${modelCount} models` : ""}
                       </div>
                     </div>
                   </div>
-                  <div className="od-card-actions">
-                    <span className={cn("od-pill", detected ? "is-positive" : "is-negative")}>
-                      {formatValue(toolStatus)}
-                    </span>
+                  <div className="flex items-center justify-start sm:justify-end">
+                    <InventoryPill tone={detected ? "positive" : "negative"}>{formatValue(toolStatus)}</InventoryPill>
                   </div>
                 </article>
               );
@@ -303,55 +310,50 @@ export function RunnersClient() {
           </div>
         </section>
 
-        <section className="od-section">
-          <div className="od-section-head">
-            <h2 className="od-section-title">Runner Diagnostics</h2>
-            <span className="od-section-meta">{runners.data.length} registered</span>
-          </div>
+        <section className="flex flex-col gap-3">
+          <SectionHeader title="Runner Diagnostics" meta={`${runners.data.length} registered`} />
           {runners.data.length ? (
-            <div className="od-table-wrap">
-              <div className="od-table-scroll">
-              <table className="od-table">
-                <thead>
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-xs">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[820px] border-collapse text-left text-sm">
+                <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th>Runner</th>
-                    <th>Host</th>
-                    <th>Tools</th>
-                    <th>Executors</th>
-                    <th>Last Seen</th>
+                    <th className={tableHeadCellClass}>Runner</th>
+                    <th className={tableHeadCellClass}>Host</th>
+                    <th className={tableHeadCellClass}>Tools</th>
+                    <th className={tableHeadCellClass}>Executors</th>
+                    <th className={tableHeadCellClass}>Last Seen</th>
                   </tr>
                 </thead>
                 <tbody>
                   {runners.data.map((runner) => (
-                    <tr key={runner.id}>
-                      <td>
-                        <div className="od-agent-main">
+                    <tr key={runner.id} className="hover:bg-muted/30">
+                      <td className={tableCellClass}>
+                        <div className="flex min-w-0 items-center gap-2.5">
                           <ProviderLogo id="fusion-runner" size="sm" />
-                          <div className="od-agent-body">
-                            <div className="od-card-title truncate">{runner.name}</div>
-                            <span className={cn("od-pill", runner.status === "online" ? "is-positive" : "is-negative")}>
-                              {runner.status}
-                            </span>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-foreground">{runner.name}</div>
+                            <InventoryPill tone={runner.status === "online" ? "positive" : "negative"}>{runner.status}</InventoryPill>
                           </div>
                         </div>
                       </td>
-                      <td className="od-card-meta">
+                      <td className={cn(tableCellClass, "text-xs text-muted-foreground")}>
                         {runner.os} / {runner.arch}
                       </td>
-                      <td>
-                        <div className="od-capability-list">
+                      <td className={tableCellClass}>
+                        <div className="flex max-w-[340px] flex-wrap gap-1.5">
                           {runner.tools.map((tool) => (
-                            <span
+                            <InventoryPill
                               key={tool.id ?? `${tool.tool}:${tool.path ?? ""}`}
-                              className={cn("od-pill", tool.status === "unavailable" || tool.status === "error" ? "is-negative" : "is-positive")}
+                              tone={tool.status === "unavailable" || tool.status === "error" ? "negative" : "positive"}
                             >
                               {toolName(tool)}: {formatValue(tool.status)}
-                            </span>
+                            </InventoryPill>
                           ))}
                         </div>
                       </td>
-                      <td className="od-card-meta">{runner.capabilities.executors.join(", ") || "host"}</td>
-                      <td className="od-card-meta">{formatDateTime(runner.lastSeenAt)}</td>
+                      <td className={cn(tableCellClass, "text-xs text-muted-foreground")}>{runner.capabilities.executors.join(", ") || "host"}</td>
+                      <td className={cn(tableCellClass, "text-xs text-muted-foreground")}>{formatDateTime(runner.lastSeenAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -359,10 +361,10 @@ export function RunnersClient() {
               </div>
             </div>
           ) : (
-            <div className="od-empty">
-              <strong>No runners registered</strong>
-              Use the one-time installer above, then refresh this page after the service starts.
-            </div>
+            <EmptyPanel
+              title="No runners registered"
+              description="Use the one-time installer above, then refresh this page after the service starts."
+            />
           )}
         </section>
       </div>
@@ -372,11 +374,58 @@ export function RunnersClient() {
 
 function MetricCard({ label, value, detail }: { label: string; value: number; detail: string }) {
   return (
-    <article className="od-metric-card">
-      <div className="od-metric-label">{label}</div>
-      <div className="od-metric-value">{value}</div>
-      <div className="od-metric-detail">{detail}</div>
+    <article className="rounded-lg border border-border bg-card p-3 shadow-xs">
+      <div className="text-xs font-semibold uppercase text-muted-foreground">{label}</div>
+      <div className="mt-1.5 text-2xl font-semibold leading-none text-foreground">{value}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
     </article>
+  );
+}
+
+const tableHeadCellClass = "border-b border-border px-3 py-2.5 font-semibold";
+const tableCellClass = "border-b border-border/60 px-3 py-2.5 align-middle";
+
+type PillTone = "neutral" | "positive" | "negative" | "warning";
+
+function InventoryPill({ children, tone = "neutral" }: { children: ReactNode; tone?: PillTone }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex min-h-5 items-center rounded-full border px-2 py-0.5 text-xs font-medium leading-none",
+        tone === "positive" && "border-primary/20 bg-primary/10 text-primary",
+        tone === "negative" && "border-destructive/20 bg-destructive/10 text-destructive",
+        tone === "warning" && "border-accent bg-accent text-accent-foreground",
+        tone === "neutral" && "border-border bg-muted text-muted-foreground",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
+function EmptyPanel({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center">
+      <strong className="block text-sm font-semibold text-foreground">{title}</strong>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function SectionHeader({ title, meta }: { title: string; meta: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <span className="text-xs tabular-nums text-muted-foreground">{meta}</span>
+    </div>
   );
 }
 

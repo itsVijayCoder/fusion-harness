@@ -14,19 +14,19 @@ export function ModelSourceRow({ model, isExpanded, onToggle }: ModelSourceRowPr
     <button
       onClick={onToggle}
       className={cn(
-        "od-chrome flex w-full items-center gap-2.5 rounded-[var(--od-radius)] border border-[var(--od-border)] bg-[var(--od-panel)] px-3 py-2.5 text-left transition-colors duration-150",
-        isExpanded ? "border-[var(--od-border-strong)] bg-[var(--od-accent-tint)]" : "hover:border-[var(--od-border-strong)] hover:bg-[var(--od-subtle)]",
+        "flex w-full items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-colors duration-150",
+        isExpanded ? "border-primary/30 bg-primary/10" : "hover:border-input hover:bg-muted/60",
       )}
     >
       <ProviderLogo id={model.provider || model.adapter} size="sm" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[12.5px] font-semibold text-[var(--od-text)]">{model.name}</p>
-        <p className="truncate text-[11px] text-[var(--od-muted)]">{model.provider}</p>
+        <p className="truncate text-sm font-semibold text-foreground">{model.name}</p>
+        <p className="truncate text-xs text-muted-foreground">{model.provider}</p>
       </div>
       <RiArrowRightSLine
         aria-hidden
         className={cn(
-          "size-4 text-[var(--od-muted)] transition-transform duration-150",
+          "size-4 text-muted-foreground transition-transform duration-150",
           isExpanded && "rotate-90",
         )}
       />

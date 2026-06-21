@@ -3,6 +3,7 @@
 import { RiClipboardLine, RiRefreshLine } from "@remixicon/react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { ProviderLogo } from "@/components/provider-logo";
+import { Button } from "@/components/ui/button";
 import { apiPost, apiUrl } from "@/lib/api";
 
 type RunnerBootstrapProps = {
@@ -65,32 +66,32 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
   }
 
   return (
-    <section className="od-panel p-5">
+    <section className="rounded-lg border border-border bg-card p-5 shadow-xs">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <div className="flex items-center gap-2">
             <ProviderLogo id="fusion-runner" size="lg" />
             <div>
-              <h2 className="od-card-title">Local Runner</h2>
-              <p className="od-card-description">
+              <h2 className="text-sm font-semibold text-foreground">Local Runner</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {hasRunner ? "Runner detected. The local service keeps it available in the background." : "Install once on the machine that has your agent CLIs."}
               </p>
             </div>
           </div>
-          <p className="od-page-copy mt-4">
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground">
             The copy action creates a scoped runner token for your user, writes the cloud URL, and registers a background login task so the runner starts automatically.
           </p>
           {copyError ? <p className="mt-3 text-sm font-medium text-destructive">{copyError}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="od-action" onClick={() => copyCommand(preferredInstall)}>
-            <RiClipboardLine aria-hidden className="size-4" />
+          <Button type="button" variant="outline" size="sm" className="rounded-md" onClick={() => copyCommand(preferredInstall)}>
+            <RiClipboardLine aria-hidden data-icon="inline-start" />
             {copied === preferredInstall ? "Copied" : "Copy Install"}
-          </button>
-          <button type="button" className="od-action" onClick={refresh}>
-            <RiRefreshLine aria-hidden className="size-4" />
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="rounded-md" onClick={refresh}>
+            <RiRefreshLine aria-hidden data-icon="inline-start" />
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
       <div className="mt-4 grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
@@ -134,14 +135,14 @@ async function createRunnerToken() {
 
 function CommandBlock({ label, command, onCopy, copied }: { label: string; command: string; onCopy: () => void; copied: boolean }) {
   return (
-    <div className="od-panel overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--od-border-soft)] px-3 py-2">
-        <span className="od-section-meta font-semibold">{label}</span>
-        <button type="button" className="text-xs font-semibold text-[var(--od-text)] hover:text-[var(--od-accent-strong)]" onClick={onCopy}>
+    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-xs">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-3 py-2">
+        <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+        <button type="button" className="text-xs font-semibold text-foreground hover:text-primary" onClick={onCopy}>
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="overflow-x-auto px-3 py-3 text-xs leading-5 text-[var(--od-text)]">{command}</pre>
+      <pre className="overflow-x-auto px-3 py-3 text-xs leading-5 text-foreground">{command}</pre>
     </div>
   );
 }
