@@ -137,6 +137,17 @@ if ([string]::IsNullOrWhiteSpace($RunnerId)) {
   $user = if ($env:USERNAME) { $env:USERNAME } else { "local" }
   $computer = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { "windows" }
   $RunnerId = "runner_${user}_${computer}" -replace "[^A-Za-z0-9_-]+", "_"
+  if (-not [string]::IsNullOrWhiteSpace($Token)) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $bytes = [System.Text.Encoding]::UTF8.GetBytes($Token)
+      $hash = $sha.ComputeHash($bytes)
+      $suffix = -join ($hash[0..5] | ForEach-Object { $_.ToString("x2") })
+      $RunnerId = "${RunnerId}_${suffix}"
+    } finally {
+      $sha.Dispose()
+    }
+  }
   $RunnerId = $RunnerId.TrimEnd("_")
 }
 

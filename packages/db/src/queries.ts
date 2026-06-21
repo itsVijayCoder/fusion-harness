@@ -478,6 +478,7 @@ export async function registerRunner(db: D1DatabaseLike, input: RunnerRegistrati
        )
        VALUES (?, ?, ?, ?, ?, ?, ?, 'online', ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
+         org_id = excluded.org_id,
          user_id = excluded.user_id,
          name = excluded.name,
          os = excluded.os,

@@ -195,6 +195,7 @@ func runConfig(args []string) error {
 func runServe(args []string) error {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	cloudURL := flags.String("cloud-url", "", "Fusion API base URL")
+	token := flags.String("token", "", "runner token")
 	interval := flags.Duration("heartbeat-interval", 30*time.Second, "heartbeat interval")
 	pollInterval := flags.Duration("poll-interval", 2*time.Second, "job claim poll interval")
 	leaseSeconds := flags.Int("lease-seconds", 300, "job lease duration in seconds")
@@ -209,6 +210,12 @@ func runServe(args []string) error {
 	}
 	if *cloudURL != "" {
 		cfg.CloudURL = *cloudURL
+	}
+	if *token != "" {
+		cfg.Token = *token
+		if err := config.Save(cfg); err != nil {
+			return err
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

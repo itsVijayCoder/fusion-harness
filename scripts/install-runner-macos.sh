@@ -95,6 +95,10 @@ plist_path="$plist_dir/$label.plist"
 if [[ -z "$runner_id" ]]; then
   host_name="$(scutil --get LocalHostName 2>/dev/null || hostname || echo local)"
   runner_id="runner_${USER:-local}_${host_name}"
+  if [[ -n "$token" ]] && command -v shasum >/dev/null 2>&1; then
+    token_suffix="$(printf '%s' "$token" | shasum -a 256 | awk '{print substr($1, 1, 12)}')"
+    runner_id="${runner_id}_${token_suffix}"
+  fi
   runner_id="$(printf '%s' "$runner_id" | tr -cs 'A-Za-z0-9_-' '_' | sed 's/_$//')"
 fi
 

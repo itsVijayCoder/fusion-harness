@@ -51,11 +51,11 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
   }
 
   function manualCommandFor(token: string) {
-    return `fusion-runner serve --cloud-url '${cloudUrl}' --token '${token}'`;
+    return `fusion-runner login --cloud-url '${cloudUrl}' --token '${token}' && fusion-runner serve --cloud-url '${cloudUrl}'`;
   }
 
   function devCommandFor(token: string) {
-    return `cd apps/runner-go && go run ./cmd/fusion-runner serve --cloud-url '${cloudUrl}' --token '${token}'`;
+    return `cd apps/runner-go && go run ./cmd/fusion-runner login --cloud-url '${cloudUrl}' --token '${token}' && go run ./cmd/fusion-runner serve --cloud-url '${cloudUrl}'`;
   }
 
   function refresh() {

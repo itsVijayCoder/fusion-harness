@@ -84,11 +84,13 @@ Local development normally uses three processes:
 
 - `npm run api:dev`
 - `npm run dev`
-- `fusion-runner serve --cloud-url http://localhost:8787 --token <runner-token>`
+- `fusion-runner login --cloud-url http://localhost:8787 --token <runner-token>`
+- `fusion-runner serve --cloud-url http://localhost:8787`
 
 In a deployed setup, the web app and API are hosted, so the user's trusted machine only runs the local runner:
 
-- `fusion-runner serve --cloud-url <deployed-api-url> --token <runner-token>`
+- `fusion-runner login --cloud-url <deployed-api-url> --token <runner-token>`
+- `fusion-runner serve --cloud-url <deployed-api-url>`
 
 The hosted browser UI cannot directly spawn a local binary or scan the user's PATH. OpenDesign appears native because its Electron package starts a privileged daemon sidecar that performs local agent detection and CLI spawning. Fusion Harness uses the same trust boundary through the Go runner.
 
