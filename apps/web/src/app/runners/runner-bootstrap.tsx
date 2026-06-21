@@ -19,7 +19,8 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
     if (typeof navigator === "undefined") return "macos";
     return /windows|win32|win64/i.test(`${navigator.userAgent} ${navigator.platform}`) ? "windows" : "macos";
   }, []);
-  const macosInstallCommand = `npm run runner:install:macos -- --cloud-url ${cloudUrl}`;
+  const macosInstallerUrl = `${appUrl}/install/macos.sh`;
+  const macosInstallCommand = `curl -fsSL '${macosInstallerUrl}' | bash -s -- --cloud-url '${cloudUrl}' --binary-base-url '${appUrl}/downloads'`;
   const windowsInstallerUrl = `${appUrl}/install/windows.ps1`;
   const windowsInstallCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm '${windowsInstallerUrl}'))) --cloud-url '${cloudUrl}'"`;
   const manualCommand = `fusion-runner serve --cloud-url ${cloudUrl}`;
@@ -73,7 +74,7 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
         </div>
       </div>
       <div className="mt-4 grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
-        <CommandBlock label="macOS service" command={macosInstallCommand} onCopy={() => copyCommand("macos")} copied={copied === "macos"} />
+        <CommandBlock label="macOS LaunchAgent" command={macosInstallCommand} onCopy={() => copyCommand("macos")} copied={copied === "macos"} />
         <CommandBlock
           label="Windows scheduled task"
           command={windowsInstallCommand}

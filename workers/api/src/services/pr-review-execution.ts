@@ -9,6 +9,7 @@ import {
   getPrReviewRun,
   getRunnerJob,
   listPrReviewCommentsByRun,
+  listRunners,
   updateFusionRunStatus,
   updateGitHubPullRequestStatus,
   updatePrReviewRun,
@@ -77,9 +78,19 @@ export async function startPrReview(
   const reviewMode = input.reviewMode ?? DEFAULT_REVIEW_MODE;
   const adapter = input.adapter ?? DEFAULT_ADAPTER;
   const model = input.model ?? "default";
-  const runnerId = input.runnerId ?? repo.defaultRunnerId;
+  let runnerId = input.runnerId ?? repo.defaultRunnerId;
+
   if (!runnerId) {
-    throw new PrReviewError("No runner is configured for this repository", 422);
+    const runners = await listRunners(env.DB, principal.orgId);
+    const onlineRunners = runners.filter((r) => r.status === "online");
+    if (onlineRunners.length === 0) {
+      throw new PrReviewError("No online runners available. Start the fusion-runner service.", 422);
+    }
+    const adapterRunner = onlineRunners.find((r) =>
+      r.capabilities?.adapters?.includes(adapter),
+    );
+    const selected = adapterRunner ?? onlineRunners[0];
+    runnerId = selected.id;
   }
 
   const fusionRunId = formatEntityId("run", crypto.randomUUID());

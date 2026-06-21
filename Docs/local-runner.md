@@ -4,13 +4,26 @@ The local runner is a native Go binary under `apps/runner-go`.
 
 ## One-time macOS install
 
-For the current source checkout, install the runner as a macOS LaunchAgent:
+For end users, install the runner from the deployed web app. This command works
+from any directory because it does not require a source checkout or
+`package.json`:
+
+```bash
+curl -fsSL https://fusion-harness.asthrix.workers.dev/install/macos.sh | bash -s -- --cloud-url https://fusion-api.asthrix.workers.dev
+```
+
+For the current source checkout, the repo-local npm script is also available.
+Run it from the repository root:
 
 ```bash
 npm run runner:install:macos -- --cloud-url https://fusion-api.asthrix.workers.dev
 ```
 
-The installer builds `fusion-runner`, installs it at `~/.fusion-harness/bin/fusion-runner`, creates a `~/.local/bin/fusion-runner` symlink, writes `~/.fusion-harness/config.json`, and registers `~/Library/LaunchAgents/com.asthrix.fusion-runner.plist`.
+The hosted installer downloads `fusion-runner`. The repo-local installer builds
+`fusion-runner` when Go is available, otherwise copies a bundled macOS binary.
+Both install it at `~/.fusion-harness/bin/fusion-runner`, create a
+`~/.local/bin/fusion-runner` symlink, write `~/.fusion-harness/config.json`, and
+register `~/Library/LaunchAgents/com.asthrix.fusion-runner.plist`.
 
 After that, the user does not need to run `fusion-runner serve` manually. macOS starts the runner on login and restarts it if it exits.
 
@@ -40,7 +53,7 @@ npm run runner:install:windows -- --cloud-url https://fusion-api.asthrix.workers
 
 The hosted installer downloads `fusion-runner.exe` from the deployed web app.
 The repo-local installer builds `fusion-runner.exe` when Go is available,
-otherwise copies the checked-in Windows binary from `apps/runner-go/dist`. Both
+otherwise copies the checked-in Windows binary from `apps/web/public/downloads`. Both
 install the runner under `%USERPROFILE%\.fusion-harness\bin`, create a
 `fusion-runner.cmd` shim, add the shim directory to the user PATH, write
 `%USERPROFILE%\.fusion-harness\config.json`, and register the

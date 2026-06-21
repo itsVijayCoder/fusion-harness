@@ -11,11 +11,11 @@ Cloudflare hosts these services:
 - `fusion-api`: Hono API Worker with D1, KV, Durable Objects, and optional R2.
 - `fusion-mcp`: optional MCP Worker that points at `fusion-api`.
 
-The Go runner is not deployed to Cloudflare. For the current source checkout,
-install it once on the user's trusted machine:
+The Go runner is not deployed to Cloudflare. Install it once on the user's
+trusted machine:
 
 ```bash
-npm run runner:install:macos -- --cloud-url https://fusion-api.asthrix.workers.dev
+curl -fsSL https://fusion-harness.asthrix.workers.dev/install/macos.sh | bash -s -- --cloud-url https://fusion-api.asthrix.workers.dev
 ```
 
 ```powershell
@@ -118,7 +118,7 @@ curl https://fusion-api.asthrix.workers.dev/api/runners
 Then install or refresh a local runner:
 
 ```bash
-npm run runner:install:macos -- --cloud-url https://fusion-api.asthrix.workers.dev
+curl -fsSL https://fusion-harness.asthrix.workers.dev/install/macos.sh | bash -s -- --cloud-url https://fusion-api.asthrix.workers.dev
 ```
 
 ```powershell

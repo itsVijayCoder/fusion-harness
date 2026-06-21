@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   RiCheckLine,
   RiCloseLine,
@@ -55,27 +55,40 @@ const ADAPTER_LABELS: Record<AdapterId, string> = {
   vibe: "Mistral Vibe",
 };
 
-const ADAPTER_OPTIONS = Object.entries(ADAPTER_LABELS) as [AdapterId, string][];
-
 type ModelOption = {
   id: string;
   label: string;
   provider: string;
+  adapter: string;
+};
+
+type RunnerInfo = {
+  id: string;
+  name: string;
+  status: string;
+  adapters: AdapterId[];
 };
 
 type ModelsResponse = {
   aliases: Array<{ id: string; owned_by: string }>;
-  data: Array<{ id: string; provider?: string; modelId?: string; name?: string }>;
+  data: Array<{
+    id: string;
+    adapter: string;
+    provider: string;
+    model: string;
+    displayName: string;
+    runnerId?: string;
+  }>;
 };
 
-const DEFAULT_MODELS: ModelOption[] = [
-  { id: "default", label: "Default", provider: "fusion" },
-  { id: "local/fusion", label: "Fusion (balanced)", provider: "fusion" },
-  { id: "local/fusion-fast", label: "Fusion Fast", provider: "fusion" },
-  { id: "local/fusion-quality", label: "Fusion Quality", provider: "fusion" },
-  { id: "local/codex", label: "Codex (local)", provider: "codex" },
-  { id: "local/opencode", label: "OpenCode (local)", provider: "opencode" },
-];
+type RunnersResponse = {
+  data: Array<{
+    id: string;
+    name: string;
+    status: string;
+    capabilities: { adapters: AdapterId[] };
+  }>;
+};
 
 const REVIEW_MODES = [
   { value: "quick", label: "Quick" },
@@ -90,33 +103,57 @@ export function PrActions({ prId, status }: { prId: string; status: string }) {
   const [adapter, setAdapter] = useState<AdapterId>("codex");
   const [model, setModel] = useState("default");
   const [reviewMode, setReviewMode] = useState<"quick" | "standard" | "deep" | "security">("standard");
-  const [models, setModels] = useState<ModelOption[]>(DEFAULT_MODELS);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [availableAdapters, setAvailableAdapters] = useState<AdapterId[]>([]);
 
   useEffect(() => {
-    fetch(apiUrl("/api/models"))
-      .then((r) => r.json() as Promise<ModelsResponse>)
-      .then((data) => {
-        const dbModels: ModelOption[] = (data.data ?? []).map((m) => ({
-          id: m.modelId ?? m.id,
-          label: m.name ?? m.modelId ?? m.id,
-          provider: m.provider ?? "custom",
+    Promise.all([
+      fetch(apiUrl("/api/models")).then((r) => r.json() as Promise<ModelsResponse>),
+      fetch(apiUrl("/api/runners")).then((r) => r.json() as Promise<RunnersResponse>),
+    ])
+      .then(([modelData, runnerData]) => {
+        const onlineRunners = (runnerData.data ?? []).filter((r) => r.status === "online");
+        const adapterSet = new Set<AdapterId>();
+        for (const r of onlineRunners) {
+          for (const a of r.capabilities?.adapters ?? []) {
+            adapterSet.add(a);
+          }
+        }
+        const adapters = Array.from(adapterSet);
+        setAvailableAdapters(adapters);
+
+        const dbModels: ModelOption[] = (modelData.data ?? []).map((m) => ({
+          id: m.model,
+          label: m.displayName || m.model,
+          provider: m.provider,
+          adapter: m.adapter,
         }));
-        const aliasModels: ModelOption[] = (data.aliases ?? []).map((a) => ({
-          id: a.id,
-          label: a.id.replace("local/", "").replace(/^./, (c) => c.toUpperCase()),
-          provider: a.owned_by,
-        }));
-        const all = [...DEFAULT_MODELS, ...aliasModels, ...dbModels];
-        const seen = new Set<string>();
-        const deduped = all.filter((m) => {
-          if (seen.has(m.id)) return false;
-          seen.add(m.id);
-          return true;
-        });
-        if (deduped.length > 0) setModels(deduped);
+        setModels(dbModels);
+
+        if (adapters.length > 0 && !adapters.includes(adapter)) {
+          setAdapter(adapters[0]);
+        }
       })
       .catch(() => {});
   }, []);
+
+  const filteredModels = useMemo(() => {
+    const matching = models.filter((m) => m.adapter === adapter);
+    if (matching.length > 0) {
+      if (!matching.find((m) => m.id === model)) {
+        setModel(matching[0].id);
+      }
+      return matching;
+    }
+    return [{ id: "default", label: "Default (CLI config)", provider: "", adapter }];
+  }, [models, adapter, model]);
+
+  const adapterOptions = useMemo(() => {
+    if (availableAdapters.length > 0) {
+      return availableAdapters.map((id) => [id, ADAPTER_LABELS[id]] as [AdapterId, string]);
+    }
+    return Object.entries(ADAPTER_LABELS) as [AdapterId, string][];
+  }, [availableAdapters]);
 
   async function action(name: string, path: string, method = "POST") {
     setBusy(name);
@@ -133,11 +170,15 @@ export function PrActions({ prId, status }: { prId: string; status: string }) {
   async function handleStart() {
     setBusy("start");
     try {
-      await fetch(apiUrl(`/api/pr-reviews/${prId}/start`), {
+      const res = await fetch(apiUrl(`/api/pr-reviews/${prId}/start`), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ adapter, model, reviewMode }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("Start review failed:", body);
+      }
       router.refresh();
     } catch {
       // ignore
@@ -159,11 +200,16 @@ export function PrActions({ prId, status }: { prId: string; status: string }) {
           <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
             <select
               value={adapter}
-              onChange={(e) => setAdapter(e.target.value as AdapterId)}
+              onChange={(e) => {
+                const newAdapter = e.target.value as AdapterId;
+                setAdapter(newAdapter);
+                const first = models.find((m) => m.adapter === newAdapter);
+                setModel(first?.id ?? "default");
+              }}
               className="h-6 cursor-pointer bg-transparent px-2 text-xs font-medium outline-none"
               title="Provider (agent CLI)"
             >
-              {ADAPTER_OPTIONS.map(([id, label]) => (
+              {adapterOptions.map(([id, label]) => (
                 <option key={id} value={id}>
                   {label}
                 </option>
@@ -173,10 +219,10 @@ export function PrActions({ prId, status }: { prId: string; status: string }) {
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="h-6 max-w-[140px] cursor-pointer bg-transparent px-2 text-xs outline-none"
+              className="h-6 max-w-[160px] cursor-pointer bg-transparent px-2 text-xs outline-none"
               title="Model"
             >
-              {models.map((m) => (
+              {filteredModels.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
                 </option>
