@@ -135,7 +135,17 @@ if ([string]::IsNullOrWhiteSpace($RunnerId)) {
 New-Item -ItemType Directory -Force -Path $InstallDir, $ShimDir, $ConfigDir, $LogDir | Out-Null
 
 $go = Get-Command "go.exe" -ErrorAction SilentlyContinue
-$distBinary = Join-Path $RunnerDir "dist\fusion-runner-windows-amd64.exe"
+$bundledBinaryCandidates = @(
+  (Join-Path $RepoRoot "apps\web\public\downloads\fusion-runner-windows-amd64.exe"),
+  (Join-Path $RunnerDir "dist\fusion-runner-windows-amd64.exe")
+)
+$bundledBinary = $null
+foreach ($candidate in $bundledBinaryCandidates) {
+  if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+    $bundledBinary = $candidate
+    break
+  }
+}
 if ($go) {
   Write-Host "Building Fusion Runner..."
   Push-Location $RunnerDir
@@ -147,11 +157,11 @@ if ($go) {
   } finally {
     Pop-Location
   }
-} elseif (Test-Path -LiteralPath $distBinary) {
+} elseif ($bundledBinary) {
   Write-Host "Go is not installed; copying the checked-in Windows binary."
-  Copy-Item -LiteralPath $distBinary -Destination $BinaryPath -Force
+  Copy-Item -LiteralPath $bundledBinary -Destination $BinaryPath -Force
 } else {
-  throw "Go is required to build Fusion Runner from this checkout, and no Windows binary was found at $distBinary."
+  throw "Go is required to build Fusion Runner from this checkout, and no checked-in Windows binary was found."
 }
 
 $cmdShim = "@echo off`r`n`"$BinaryPath`" %*`r`n"

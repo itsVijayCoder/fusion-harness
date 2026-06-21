@@ -98,18 +98,39 @@ if [[ -z "$runner_id" ]]; then
   runner_id="$(printf '%s' "$runner_id" | tr -cs 'A-Za-z0-9_-' '_' | sed 's/_$//')"
 fi
 
+case "$(uname -m)" in
+  arm64|aarch64)
+    binary_arch="arm64"
+    ;;
+  x86_64|amd64)
+    binary_arch="amd64"
+    ;;
+  *)
+    echo "Unsupported macOS architecture: $(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
 mkdir -p "$install_dir" "$symlink_dir" "$config_dir" "$log_dir" "$plist_dir"
 
+bundled_binary="$repo_root/apps/web/public/downloads/fusion-runner-darwin-$binary_arch"
+legacy_binary="$runner_dir/fusion-runner"
 if command -v go >/dev/null 2>&1; then
   echo "Building Fusion Runner..."
   (cd "$runner_dir" && go build -o "$binary_path" ./cmd/fusion-runner)
-elif [[ -x "$runner_dir/fusion-runner" ]]; then
+elif [[ -x "$bundled_binary" ]]; then
+  echo "Go is not installed; copying the bundled macOS $binary_arch binary."
+  install -m 0755 "$bundled_binary" "$binary_path"
+elif [[ "$binary_arch" == "arm64" && -x "$legacy_binary" ]]; then
   echo "Go is not installed; copying the checked-in development binary."
-  install -m 0755 "$runner_dir/fusion-runner" "$binary_path"
+  install -m 0755 "$legacy_binary" "$binary_path"
 else
   cat >&2 <<'ERROR'
-Go is required to build Fusion Runner from this source checkout.
-Install Go, then run this installer again.
+Go is required to build Fusion Runner from this source checkout, and no bundled
+macOS binary was found.
+
+Install Go, use the hosted installer, or add the matching bundled binary under
+apps/web/public/downloads, then run this installer again.
 ERROR
   exit 1
 fi
