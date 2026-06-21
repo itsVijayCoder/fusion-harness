@@ -1,8 +1,8 @@
 "use client";
 
-import { RiClipboardLine, RiRefreshLine, RiTerminalBoxLine } from "@remixicon/react";
+import { RiClipboardLine, RiRefreshLine } from "@remixicon/react";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { Button } from "@/components/ui/button";
+import { ProviderLogo } from "@/components/provider-logo";
 import { apiPost, apiUrl } from "@/lib/api";
 
 type RunnerBootstrapProps = {
@@ -65,34 +65,32 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
+    <section className="od-panel p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <RiTerminalBoxLine aria-hidden className="size-5" />
-            </span>
+            <ProviderLogo id="fusion-runner" size="lg" />
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Local Runner</h2>
-              <p className="text-xs font-medium text-muted-foreground">
+              <h2 className="od-card-title">Local Runner</h2>
+              <p className="od-card-description">
                 {hasRunner ? "Runner detected. The local service keeps it available in the background." : "Install once on the machine that has your agent CLIs."}
               </p>
             </div>
           </div>
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          <p className="od-page-copy mt-4">
             The copy action creates a scoped runner token for your user, writes the cloud URL, and registers a background login task so the runner starts automatically.
           </p>
           {copyError ? <p className="mt-3 text-sm font-medium text-destructive">{copyError}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" className="gap-2 rounded-md" onClick={() => copyCommand(preferredInstall)}>
+          <button type="button" className="od-action" onClick={() => copyCommand(preferredInstall)}>
             <RiClipboardLine aria-hidden className="size-4" />
             {copied === preferredInstall ? "Copied" : "Copy Install"}
-          </Button>
-          <Button type="button" size="sm" variant="ghost" className="gap-2 rounded-md" onClick={refresh}>
+          </button>
+          <button type="button" className="od-action" onClick={refresh}>
             <RiRefreshLine aria-hidden className="size-4" />
             Refresh
-          </Button>
+          </button>
         </div>
       </div>
       <div className="mt-4 grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
@@ -136,14 +134,14 @@ async function createRunnerToken() {
 
 function CommandBlock({ label, command, onCopy, copied }: { label: string; command: string; onCopy: () => void; copied: boolean }) {
   return (
-    <div className="rounded-md border border-border bg-muted/50">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
-        <span className="text-xs font-semibold text-muted-foreground">{label}</span>
-        <button type="button" className="text-xs font-semibold text-foreground hover:text-primary" onClick={onCopy}>
+    <div className="od-panel overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--od-border-soft)] px-3 py-2">
+        <span className="od-section-meta font-semibold">{label}</span>
+        <button type="button" className="text-xs font-semibold text-[var(--od-text)] hover:text-[var(--od-accent-strong)]" onClick={onCopy}>
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="overflow-x-auto px-3 py-3 text-xs leading-5 text-foreground">{command}</pre>
+      <pre className="overflow-x-auto px-3 py-3 text-xs leading-5 text-[var(--od-text)]">{command}</pre>
     </div>
   );
 }

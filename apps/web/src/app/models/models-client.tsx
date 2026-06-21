@@ -1,9 +1,12 @@
 "use client";
 
 import type { ModelRef } from "@fusion-harness/shared";
+import { RiArrowLeftLine } from "@remixicon/react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { DataNotice, EmptyState, PageHeader, Section, StatusPill } from "@/components/product-ui";
+import { ProviderLogo, providerLabel } from "@/components/provider-logo";
 import { apiUrl } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 type ModelResponse = {
   aliases: Array<{ id: string; owned_by: string }>;
@@ -51,65 +54,183 @@ export function ModelsClient() {
   }, []);
 
   const { models } = state;
+  const providerCount = new Set(models.data.map((model) => model.provider ?? model.adapter)).size;
+  const verifiedCount = models.data.filter((model) => model.availability === "verified").length;
+  const cliSessionCount = models.data.filter((model) => model.authMode === "cli_session").length;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <PageHeader title="Models" description="Local CLI sessions, cloud gateway models, aliases, and verified availability." />
-      <DataNotice source={state.source === "fallback" ? "fallback" : "api"} error={state.error} />
-      {state.source === "loading" ? (
-        <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-          Loading signed-in model inventory...
-        </div>
+    <div className="od-workspace">
+      <div className="od-container od-stack">
+        <header>
+          <div className="od-topline">
+            <div className="od-title-tab">Model Inventory</div>
+            <Link className="od-action" href="/chat">
+              <RiArrowLeftLine aria-hidden className="size-4" />
+              Back to Chat
+            </Link>
+          </div>
+          <p className="od-page-copy">
+            Local CLI sessions, cloud gateway models, aliases, and verified availability are listed with their provider marks.
+          </p>
+        </header>
+
+      {state.source === "fallback" ? (
+        <div className="od-notice">Showing local fallback data{state.error ? `: ${state.error}` : "."}</div>
       ) : null}
-      <Section title="Aliases">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {models.aliases.map((alias) => (
-            <div key={alias.id} className="rounded-lg border border-border bg-card p-4">
-              <p className="font-medium">{alias.id}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{alias.owned_by}</p>
+      {state.source === "loading" ? (
+        <div className="od-notice">Loading signed-in model inventory...</div>
+      ) : null}
+
+        <section className="od-section">
+          <div className="od-metric-grid">
+            <MetricCard label="Discovered" value={models.data.length} detail="models available to Fusion" />
+            <MetricCard label="Providers" value={providerCount} detail="unique provider identities" />
+            <MetricCard label="Verified" value={verifiedCount} detail="known-good model entries" />
+            <MetricCard label="CLI Sessions" value={cliSessionCount} detail="local authenticated agents" />
+          </div>
+        </section>
+
+        <section className="od-section">
+          <div className="od-section-head">
+            <h2 className="od-section-title">Aliases</h2>
+            <span className="od-section-meta">{models.aliases.length} routes</span>
+          </div>
+          {models.aliases.length ? (
+            <div className="od-alias-grid">
+              {models.aliases.map((alias) => (
+                <article key={alias.id} className="od-alias-card">
+                  <div className="od-alias-main">
+                    <ProviderLogo id={alias.owned_by} size="lg" />
+                    <div className="od-alias-body">
+                      <div className="od-card-title truncate">{alias.id}</div>
+                      <div className="od-card-meta">{alias.owned_by}</div>
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
-          ))}
-        </div>
-      </Section>
-      <Section title="Discovered Models">
+          ) : (
+            <div className="od-empty">
+              <strong>No aliases configured</strong>
+              Add a fusion route when you want a stable OpenAI-compatible model alias.
+            </div>
+          )}
+        </section>
+
+        <section className="od-section">
+          <div className="od-section-head">
+            <h2 className="od-section-title">Discovered Models</h2>
+            <span className="od-section-meta">{models.data.length} entries</span>
+          </div>
         {models.data.length ? (
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted text-xs text-muted-foreground">
+          <div className="od-table-wrap">
+            <div className="od-table-scroll">
+            <table className="od-table">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 font-medium">Model</th>
-                  <th className="px-4 py-3 font-medium">Adapter</th>
-                  <th className="px-4 py-3 font-medium">Auth</th>
-                  <th className="px-4 py-3 font-medium">Availability</th>
-                  <th className="px-4 py-3 font-medium">Capabilities</th>
+                  <th>Model</th>
+                  <th>Provider</th>
+                  <th>Adapter</th>
+                  <th>Auth</th>
+                  <th>Availability</th>
+                  <th>Capabilities</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody>
                 {models.data.map((model) => (
                   <tr key={model.id}>
-                    <td className="px-4 py-3 font-medium">{model.displayName ?? model.model}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{model.adapter}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{model.authMode}</td>
-                    <td className="px-4 py-3">
-                      <StatusPill value={model.availability} />
+                    <td>
+                      <div className="od-model-main">
+                        <ProviderLogo id={model.provider ?? model.adapter} size="lg" />
+                        <div className="od-model-body">
+                          <div className="od-model-title truncate">{model.displayName ?? model.model}</div>
+                          <div className="od-model-subtitle truncate">{model.model}</div>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {Object.entries(model.capabilities)
-                        .filter(([, enabled]) => enabled)
-                        .map(([name]) => name)
-                        .join(", ") || "none"}
+                    <td>
+                      <LogoText id={model.provider ?? model.adapter} />
+                    </td>
+                    <td>
+                      <LogoText id={model.adapter} />
+                    </td>
+                    <td>
+                      <span className="od-pill">{formatValue(model.authMode)}</span>
+                    </td>
+                    <td>
+                      <span className={cn("od-pill", availabilityTone(model.availability))}>
+                        {formatValue(model.availability)}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="od-capability-list">
+                        {capabilitiesFor(model).length ? (
+                          capabilitiesFor(model).map((capability) => (
+                            <span key={capability} className="od-pill">
+                              {formatCapability(capability)}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="od-card-meta">none</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
-          <EmptyState title="No discovered models" description="Register a runner with local agent CLIs installed to populate CLI-backed models." />
+          <div className="od-empty">
+            <strong>No discovered models</strong>
+            Register a runner with local agent CLIs installed to populate CLI-backed models.
+          </div>
         )}
-      </Section>
+        </section>
+      </div>
     </div>
   );
+}
+
+function MetricCard({ label, value, detail }: { label: string; value: number; detail: string }) {
+  return (
+    <article className="od-metric-card">
+      <div className="od-metric-label">{label}</div>
+      <div className="od-metric-value">{value}</div>
+      <div className="od-metric-detail">{detail}</div>
+    </article>
+  );
+}
+
+function LogoText({ id }: { id: string }) {
+  return (
+    <div className="od-agent-main">
+      <ProviderLogo id={id} size="sm" />
+      <span className="od-card-meta truncate">{providerLabel(id)}</span>
+    </div>
+  );
+}
+
+function capabilitiesFor(model: ModelRef) {
+  return Object.entries(model.capabilities)
+    .filter(([, enabled]) => enabled)
+    .map(([name]) => name);
+}
+
+function availabilityTone(value: string) {
+  if (value === "unavailable") return "is-negative";
+  if (value === "configured_unverified" || value === "suggested") return "is-warning";
+  if (value === "verified" || value === "detected" || value === "listed") return "is-positive";
+  return "";
+}
+
+function formatValue(value: string) {
+  return value.replace(/_/g, " ");
+}
+
+function formatCapability(value: string) {
+  return value.replace(/[A-Z]/g, (match) => ` ${match.toLowerCase()}`);
 }
 
 async function fetchJson<T>(path: string): Promise<T> {

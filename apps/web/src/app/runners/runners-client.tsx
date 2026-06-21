@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  RiCodeSSlashLine,
-  RiGitBranchLine,
-  RiRobot2Line,
-  RiStackLine,
-  RiTerminalBoxLine,
-} from "@remixicon/react";
+import { RiArrowLeftLine } from "@remixicon/react";
 import type { ModelRef, RunnerRef, ToolKind, ToolRef } from "@fusion-harness/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { DataNotice, EmptyState, Section, StatusPill } from "@/components/product-ui";
+import { ProviderLogo, providerLabel } from "@/components/provider-logo";
 import { apiUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -38,13 +31,11 @@ const localAgents: Array<{
   tool?: ToolKind;
   adapter?: ModelRef["adapter"];
   description: string;
-  icon: typeof RiRobot2Line;
 }> = [
   {
     id: "fusion-runner",
     name: "Fusion Runner",
     description: "Built-in local execution bridge",
-    icon: RiRobot2Line,
   },
   {
     id: "opencode",
@@ -52,14 +43,12 @@ const localAgents: Array<{
     tool: "opencode",
     adapter: "opencode",
     description: "Provider/model IDs from OpenCode",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "claude",
     name: "Claude Code",
     adapter: "claude",
     description: "Claude Code or OpenClaude local CLI",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "codex",
@@ -67,105 +56,138 @@ const localAgents: Array<{
     tool: "codex",
     adapter: "codex",
     description: "Codex model IDs passed to codex exec",
-    icon: RiCodeSSlashLine,
   },
   {
     id: "gemini",
     name: "Gemini CLI",
     adapter: "gemini",
     description: "Google Gemini local coding agent",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "cursor-agent",
     name: "Cursor Agent",
     adapter: "cursor-agent",
     description: "Cursor's terminal coding agent",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "qwen",
     name: "Qwen Code",
     adapter: "qwen",
     description: "Qwen local coding agent",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "qoder",
     name: "Qoder CLI",
     adapter: "qoder",
     description: "Qoder's local CLI agent",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "copilot",
     name: "Copilot CLI",
     adapter: "copilot",
     description: "GitHub Copilot terminal agent",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "deepseek",
     name: "DeepSeek TUI",
     adapter: "deepseek",
     description: "DeepSeek local terminal agent",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "kimi",
     name: "Kimi CLI",
     adapter: "kimi",
     description: "Moonshot Kimi local agent",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "hermes",
     name: "Hermes",
     adapter: "hermes",
     description: "Hermes ACP local agent",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "pi",
     name: "Pi",
     adapter: "pi",
     description: "Pi local agent runtime",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "aider",
     name: "Aider",
     adapter: "aider",
     description: "Aider local coding CLI",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "devin",
     name: "Devin",
     adapter: "devin",
     description: "Devin for Terminal",
-    icon: RiTerminalBoxLine,
   },
   {
     id: "grok-build",
     name: "Grok Build",
     adapter: "grok-build",
     description: "xAI Grok Build CLI",
-    icon: RiTerminalBoxLine,
+  },
+  {
+    id: "amp",
+    name: "Amp",
+    adapter: "amp",
+    description: "Amp local coding agent",
+  },
+  {
+    id: "kiro",
+    name: "Kiro",
+    adapter: "kiro",
+    description: "Kiro local coding agent",
+  },
+  {
+    id: "kilo",
+    name: "Kilo",
+    adapter: "kilo",
+    description: "Kilo local coding agent",
+  },
+  {
+    id: "vibe",
+    name: "Mistral Vibe",
+    adapter: "vibe",
+    description: "Mistral Vibe local agent",
+  },
+  {
+    id: "trae-cli",
+    name: "Trae CLI",
+    adapter: "trae-cli",
+    description: "Trae terminal coding agent",
+  },
+  {
+    id: "codebuddy",
+    name: "CodeBuddy",
+    adapter: "codebuddy",
+    description: "CodeBuddy terminal agent",
+  },
+  {
+    id: "reasonix",
+    name: "Reasonix",
+    adapter: "reasonix",
+    description: "Reasonix local coding agent",
+  },
+  {
+    id: "antigravity",
+    name: "Antigravity",
+    adapter: "antigravity",
+    description: "Google Antigravity local agent",
   },
   {
     id: "git",
     name: "Git",
     tool: "git",
     description: "Repository context and patch workflows",
-    icon: RiGitBranchLine,
   },
   {
     id: "docker",
     name: "Docker",
     tool: "docker",
     description: "Container executor capability",
-    icon: RiStackLine,
   },
 ];
 
@@ -207,107 +229,154 @@ export function RunnersClient() {
   }, []);
 
   const { runners, models } = state;
+  const detectedCount = localAgents.filter((agent) => isAgentDetected(runners.data, models.data, agent)).length;
+  const onlineRunners = runners.data.filter((runner) => runner.status === "online").length;
+  const modelCount = models.data.length;
 
   return (
-    <div className="min-h-screen bg-background px-6 py-10 text-foreground">
-      <div className="mx-auto flex max-w-7xl flex-col gap-7">
-        <header className="max-w-5xl">
-          <div className="flex items-end justify-between gap-4 border-b border-border">
-            <div className="flex h-10 items-center border-b-2 border-primary pr-16 text-sm font-semibold text-foreground">Local Agents</div>
-            <Button asChild variant="ghost" size="sm" className="mb-1 text-muted-foreground">
-              <Link href="/chat">Back to Chat</Link>
-            </Button>
+    <div className="od-workspace">
+      <div className="od-container od-stack">
+        <header>
+          <div className="od-topline">
+            <div className="od-title-tab">Local Agents</div>
+            <Link className="od-action" href="/chat">
+              <RiArrowLeftLine aria-hidden className="size-4" />
+              Back to Chat
+            </Link>
           </div>
-          <p className="mt-5 text-sm leading-6 text-muted-foreground">
+          <p className="od-page-copy">
             Fusion Runner ships with the app. Local agents are detected when their CLI is installed on the host and the runner registers its discovery report.
           </p>
         </header>
 
-        <DataNotice source={state.source === "fallback" ? "fallback" : "api"} error={state.error} />
-        {state.source === "loading" ? (
-          <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-            Loading signed-in runner inventory...
-          </div>
+        {state.source === "fallback" ? (
+          <div className="od-notice">Showing local fallback data{state.error ? `: ${state.error}` : "."}</div>
         ) : null}
+        {state.source === "loading" ? (
+          <div className="od-notice">Loading signed-in runner inventory...</div>
+        ) : null}
+
+        <section className="od-section">
+          <div className="od-metric-grid">
+            <MetricCard label="Detected Agents" value={detectedCount} detail={`${localAgents.length} known surfaces`} />
+            <MetricCard label="Online Runners" value={onlineRunners} detail={`${runners.data.length} registered runners`} />
+            <MetricCard label="Models" value={modelCount} detail="discovered across adapters" />
+            <MetricCard label="Aliases" value={models.aliases.length} detail="OpenAI-compatible routes" />
+          </div>
+        </section>
 
         <RunnerBootstrap hasRunner={runners.data.length > 0} />
 
-        <Section title="Detected">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <section className="od-section">
+          <div className="od-section-head">
+            <h2 className="od-section-title">Detected</h2>
+            <span className="od-section-meta">{detectedCount} available</span>
+          </div>
+          <div className="od-card-grid">
             {localAgents.map((agent) => {
               const tool = findAgentTool(runners.data, agent);
-              const detected = agent.id === "fusion-runner" ? runners.data.length > 0 : Boolean(tool && tool.status !== "unavailable");
+              const detected = isAgentDetected(runners.data, models.data, agent);
               const modelCount = agent.adapter ? models.data.filter((model) => model.adapter === agent.adapter).length : 0;
-              const Icon = agent.icon;
+              const toolStatus = tool?.status ?? (detected ? "detected" : "not detected");
 
               return (
-                <article key={agent.id} className="flex min-h-[168px] flex-col items-center justify-between rounded-lg border border-border bg-card p-4 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <span className={cn("flex size-12 items-center justify-center rounded-full", detected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-                      <Icon aria-hidden className="size-6" />
-                    </span>
-                    <div>
-                      <h2 className="text-sm font-semibold text-foreground">{agent.name}</h2>
-                      <p className={cn("mt-1 text-xs font-medium", detected ? "text-muted-foreground" : "text-muted-foreground")}>
-                        {detected ? "Detected" : "Not detected"}
+                <article key={agent.id} className={cn("od-agent-card", detected && "is-detected")}>
+                  <div className="od-agent-main">
+                    <ProviderLogo id={agent.id} size="lg" />
+                    <div className="od-agent-body">
+                      <div className="od-card-title truncate">{agent.name}</div>
+                      <div className="od-card-description truncate">{agent.description}</div>
+                      <div className="od-card-meta">
+                        {providerLabel(agent.adapter ?? agent.id)}
                         {modelCount ? ` · ${modelCount} models` : ""}
-                      </p>
+                      </div>
                     </div>
                   </div>
-                  <Button asChild={detected} disabled={!detected} variant="secondary" size="sm" className="w-full rounded-md">
-                    {detected ? <Link href="/chat">Start Chat</Link> : <span>Start Chat</span>}
-                  </Button>
+                  <div className="od-card-actions">
+                    <span className={cn("od-pill", detected ? "is-positive" : "is-negative")}>
+                      {formatValue(toolStatus)}
+                    </span>
+                  </div>
                 </article>
               );
             })}
           </div>
-        </Section>
+        </section>
 
-        <Section title="Runner Diagnostics">
+        <section className="od-section">
+          <div className="od-section-head">
+            <h2 className="od-section-title">Runner Diagnostics</h2>
+            <span className="od-section-meta">{runners.data.length} registered</span>
+          </div>
           {runners.data.length ? (
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/50 text-xs text-muted-foreground">
+            <div className="od-table-wrap">
+              <div className="od-table-scroll">
+              <table className="od-table">
+                <thead>
                   <tr>
-                    <th className="px-4 py-3 font-medium">Runner</th>
-                    <th className="px-4 py-3 font-medium">Host</th>
-                    <th className="px-4 py-3 font-medium">Tools</th>
-                    <th className="px-4 py-3 font-medium">Executors</th>
-                    <th className="px-4 py-3 font-medium">Last Seen</th>
+                    <th>Runner</th>
+                    <th>Host</th>
+                    <th>Tools</th>
+                    <th>Executors</th>
+                    <th>Last Seen</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody>
                   {runners.data.map((runner) => (
                     <tr key={runner.id}>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium text-foreground">{runner.name}</span>
-                          <StatusPill value={runner.status} />
+                      <td>
+                        <div className="od-agent-main">
+                          <ProviderLogo id="fusion-runner" size="sm" />
+                          <div className="od-agent-body">
+                            <div className="od-card-title truncate">{runner.name}</div>
+                            <span className={cn("od-pill", runner.status === "online" ? "is-positive" : "is-negative")}>
+                              {runner.status}
+                            </span>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td className="od-card-meta">
                         {runner.os} / {runner.arch}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
+                      <td>
+                        <div className="od-capability-list">
                           {runner.tools.map((tool) => (
-                            <StatusPill key={tool.id ?? `${tool.tool}:${tool.path ?? ""}`} value={`${toolName(tool)}:${tool.status}`} />
+                            <span
+                              key={tool.id ?? `${tool.tool}:${tool.path ?? ""}`}
+                              className={cn("od-pill", tool.status === "unavailable" || tool.status === "error" ? "is-negative" : "is-positive")}
+                            >
+                              {toolName(tool)}: {formatValue(tool.status)}
+                            </span>
                           ))}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{runner.capabilities.executors.join(", ") || "host"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDateTime(runner.lastSeenAt)}</td>
+                      <td className="od-card-meta">{runner.capabilities.executors.join(", ") || "host"}</td>
+                      <td className="od-card-meta">{formatDateTime(runner.lastSeenAt)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           ) : (
-            <EmptyState title="No runners registered" description="Use the one-time macOS installer above, then refresh this page after the service starts." />
+            <div className="od-empty">
+              <strong>No runners registered</strong>
+              Use the one-time installer above, then refresh this page after the service starts.
+            </div>
           )}
-        </Section>
+        </section>
       </div>
     </div>
+  );
+}
+
+function MetricCard({ label, value, detail }: { label: string; value: number; detail: string }) {
+  return (
+    <article className="od-metric-card">
+      <div className="od-metric-label">{label}</div>
+      <div className="od-metric-value">{value}</div>
+      <div className="od-metric-detail">{detail}</div>
+    </article>
   );
 }
 
@@ -334,7 +403,22 @@ function findAgentTool(runners: RunnerRef[], agent: { id: string; tool?: ToolKin
     });
 }
 
+function isAgentDetected(
+  runners: RunnerRef[],
+  models: ModelRef[],
+  agent: { id: string; tool?: ToolKind; adapter?: ModelRef["adapter"] },
+) {
+  if (agent.id === "fusion-runner") return runners.length > 0;
+  if (agent.adapter && models.some((model) => model.adapter === agent.adapter)) return true;
+  const tool = findAgentTool(runners, agent);
+  return Boolean(tool && tool.status !== "unavailable");
+}
+
 function toolName(tool: ToolRef) {
   if (tool.tool !== "custom") return tool.tool;
   return typeof tool.metadata?.displayName === "string" ? tool.metadata.displayName : "custom";
+}
+
+function formatValue(value: string) {
+  return value.replace(/_/g, " ");
 }

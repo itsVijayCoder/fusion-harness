@@ -1,4 +1,5 @@
-import { ChevronRight, Plus } from "lucide-react";
+import { RiArrowRightSLine } from "@remixicon/react";
+import { ProviderLogo } from "@/components/provider-logo";
 import type { ModelOption } from "./types";
 import { cn } from "@/lib/utils";
 
@@ -13,21 +14,19 @@ export function ModelSourceRow({ model, isExpanded, onToggle }: ModelSourceRowPr
     <button
       onClick={onToggle}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors duration-150",
-        isExpanded ? "border-foreground/10" : "hover:border-foreground/10 hover:bg-muted/30",
+        "od-chrome flex w-full items-center gap-2.5 rounded-[var(--od-radius)] border border-[var(--od-border)] bg-[var(--od-panel)] px-3 py-2.5 text-left transition-colors duration-150",
+        isExpanded ? "border-[var(--od-border-strong)] bg-[var(--od-accent-tint)]" : "hover:border-[var(--od-border-strong)] hover:bg-[var(--od-subtle)]",
       )}
     >
-      <span className="flex size-5 items-center justify-center rounded-md border border-border text-muted-foreground">
-        <Plus aria-hidden className="size-3" />
-      </span>
+      <ProviderLogo id={model.provider || model.adapter} size="sm" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-foreground">{model.name}</p>
-        <p className="truncate text-[11px] text-muted-foreground">{model.provider}</p>
+        <p className="truncate text-[12.5px] font-semibold text-[var(--od-text)]">{model.name}</p>
+        <p className="truncate text-[11px] text-[var(--od-muted)]">{model.provider}</p>
       </div>
-      <ChevronRight
+      <RiArrowRightSLine
         aria-hidden
         className={cn(
-          "size-4 text-muted-foreground transition-transform duration-150",
+          "size-4 text-[var(--od-muted)] transition-transform duration-150",
           isExpanded && "rotate-90",
         )}
       />
