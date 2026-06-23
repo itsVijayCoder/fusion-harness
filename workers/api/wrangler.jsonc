@@ -15,7 +15,7 @@
     {
       "binding": "DB",
       "database_name": "openfusion_dev",
-      "database_id": "5b1f71c3-f792-48aa-a865-faf4cd6c67ca",
+      "database_id": "0b933a1e-6686-4e32-8045-0502fb72c359",
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
