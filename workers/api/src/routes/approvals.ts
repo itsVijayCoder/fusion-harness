@@ -1,4 +1,4 @@
-import { approvalRequestSchema } from "@fusion-harness/shared";
+import { approvalRequestSchema } from "@openfusion/shared";
 import { Hono } from "hono";
 import type { AppBindings } from "../env";
 import { recordApproval } from "../services/approvals";

@@ -1,4 +1,4 @@
-import type { RunEvent, RunnerEvent } from "@fusion-harness/shared";
+import type { RunEvent, RunnerEvent } from "@openfusion/shared";
 import type { Env } from "../env";
 
 const eventCountKey = "event_count";

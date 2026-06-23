@@ -1,4 +1,4 @@
-# Fusion Harness — Product Plan
+# openFusion — Product Plan
 
 **Document status:** v1.0 planning draft  
 **Prepared for:** Internal team product build  
@@ -10,9 +10,9 @@
 
 ## 1. Executive Summary
 
-Fusion Harness is a team-internal AI coding and reasoning platform inspired by OpenRouter Fusion. The product lets a team send one request to multiple available AI models or coding agents, collect their independent analysis, compare their outputs through a judge step, and produce a final fused answer or code change.
+openFusion is a team-internal AI coding and reasoning platform inspired by OpenRouter Fusion. The product lets a team send one request to multiple available AI models or coding agents, collect their independent analysis, compare their outputs through a judge step, and produce a final fused answer or code change.
 
-The key product difference is that Fusion Harness is **local-runner aware**. It can detect tools installed on a developer machine or internal runner, such as OpenCode and Codex, and use either:
+The key product difference is that openFusion is **local-runner aware**. It can detect tools installed on a developer machine or internal runner, such as OpenCode and Codex, and use either:
 
 1. the developer's existing authenticated CLI/session/subscription, or
 2. team-managed API keys routed through the cloud control plane.
@@ -49,7 +49,7 @@ A developer should be able to ask:
 
 > “Implement this feature safely, compare approaches from Codex and OpenCode, run tests in Docker, and give me a patch I can review.”
 
-Fusion Harness should then:
+openFusion should then:
 
 1. choose available models based on team policy and local availability,
 2. run multiple AI agents/models independently,
@@ -65,7 +65,7 @@ Fusion Harness should then:
 
 OpenRouter's Fusion pattern uses a panel of models that answer a prompt in parallel, a judge model that compares their responses, and a final model that uses the structured judge analysis to produce the final answer.[^openrouter-fusion-tool] OpenRouter also exposes Fusion through a model/router alias and plugin/server-tool styles.[^openrouter-fusion-router][^openrouter-fusion-plugin]
 
-Fusion Harness should copy the **architecture pattern**, not OpenRouter's backend:
+openFusion should copy the **architecture pattern**, not OpenRouter's backend:
 
 ```text
 User prompt
@@ -98,7 +98,7 @@ Key fusion analysis fields:
 4. Use either local authenticated CLI sessions or team API keys.
 5. Provide a web app first, then desktop app.
 6. Provide OpenAI-compatible APIs for integration with existing clients.
-7. Provide MCP tools so external agents/IDEs can call Fusion Harness.
+7. Provide MCP tools so external agents/IDEs can call openFusion.
 8. Store team sync data in Cloudflare.
 9. Keep execution secure through explicit workspace and command permissions.
 10. Store full traces, outputs, artifacts, patches, and audit events.
@@ -117,7 +117,7 @@ Key fusion analysis fields:
 ## 6. Product Modules
 
 ```text
-Fusion Harness
+openFusion
 ├── Web App
 ├── Cloud API
 ├── Fusion Orchestrator

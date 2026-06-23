@@ -1,5 +1,5 @@
 {
-  "name": "@fusion-harness/db",
+  "name": "@openfusion/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fusion-harness/shared": "0.1.0",
+    "@openfusion/shared": "0.1.0",
     "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {

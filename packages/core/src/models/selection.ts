@@ -1,4 +1,4 @@
-import { sanitizeCustomModelId, type AdapterId, type FusionProviderPolicy, type ModelRef } from "@fusion-harness/shared";
+import { sanitizeCustomModelId, type AdapterId, type FusionProviderPolicy, type ModelRef } from "@openfusion/shared";
 
 export type ModelSelectionInput = {
   availableModels: ModelRef[];

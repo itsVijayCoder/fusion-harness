@@ -70,7 +70,7 @@ export function AuthPanel({ error }: AuthPanelProps) {
             <span className="flex size-11 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-cyan-200 shadow-2xl shadow-cyan-950/40">
               <RiShieldUserLine aria-hidden className="size-6" />
             </span>
-            <span className="text-lg font-semibold tracking-tight">Fusion Harness</span>
+            <span className="text-lg font-semibold tracking-tight">openFusion</span>
           </div>
           <h1 className="mt-10 max-w-3xl text-5xl font-semibold tracking-[-0.04em] text-balance sm:text-6xl">
             Secure control plane for local AI agents

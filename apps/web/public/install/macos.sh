@@ -3,14 +3,14 @@ set -Eeuo pipefail
 
 label="com.asthrix.fusion-runner"
 default_cloud_url="https://fusion-api.asthrix.workers.dev"
-default_binary_base_url="https://fusion-harness.asthrix.workers.dev/downloads"
+default_binary_base_url="https://openfusion.asthrix.workers.dev/downloads"
 
 cloud_url="$default_cloud_url"
 binary_base_url="$default_binary_base_url"
 binary_url=""
 token=""
 runner_id=""
-install_dir="${FUSION_RUNNER_INSTALL_DIR:-$HOME/.fusion-harness/bin}"
+install_dir="${FUSION_RUNNER_INSTALL_DIR:-$HOME/.openfusion/bin}"
 symlink_dir="${FUSION_RUNNER_SYMLINK_DIR:-$HOME/.local/bin}"
 start_service=1
 allowed_roots=()
@@ -20,7 +20,7 @@ usage() {
 Usage: macos.sh [options]
 
 Installs Fusion Runner as a macOS LaunchAgent. This hosted installer does not
-require a Fusion Harness source checkout or package.json.
+require a openFusion source checkout or package.json.
 
 Options:
   --cloud-url URL        Fusion API URL. Defaults to production.
@@ -29,7 +29,7 @@ Options:
   --token TOKEN          Optional runner token.
   --runner-id ID         Stable runner ID. Defaults to user + host.
   --allowed-root DIR     Workspace root the runner may use. Repeatable.
-  --install-dir DIR      Binary install directory. Defaults to ~/.fusion-harness/bin.
+  --install-dir DIR      Binary install directory. Defaults to ~/.openfusion/bin.
   --symlink-dir DIR      Directory for fusion-runner symlink. Defaults to ~/.local/bin.
   --no-start             Install files without starting the LaunchAgent.
   -h, --help             Show this help.
@@ -129,7 +129,7 @@ if [[ -z "$binary_url" ]]; then
 fi
 
 binary_path="$install_dir/fusion-runner"
-config_dir="$HOME/.fusion-harness"
+config_dir="$HOME/.openfusion"
 log_dir="$config_dir/logs"
 plist_dir="$HOME/Library/LaunchAgents"
 plist_path="$plist_dir/$label.plist"
@@ -268,5 +268,5 @@ Logs:    $log_dir/runner.out.log
 Runner ID: $runner_id
 Cloud URL: $cloud_url
 
-Open the Fusion Harness Agents page and press Refresh.
+Open the openFusion Agents page and press Refresh.
 SUMMARY

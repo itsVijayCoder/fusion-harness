@@ -12,7 +12,7 @@ type RunnerBootstrapProps = {
 
 type CommandKind = "macos" | "windows";
 
-const productionAppUrl = "https://fusion-harness.asthrix.workers.dev";
+const productionAppUrl = "https://openfusion.asthrix.workers.dev";
 const productionApiUrl = "https://fusion-api.asthrix.workers.dev";
 
 export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {

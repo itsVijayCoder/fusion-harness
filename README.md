@@ -1,12 +1,12 @@
-# Fusion Harness
+# openFusion
 
-Fusion Harness is an open-source multi-model coding and reasoning platform that orchestrates local AI agents through a panel-judge-final pipeline.
+openFusion is an open-source multi-model coding and reasoning platform that orchestrates local AI agents through a panel-judge-final pipeline.
 
 Cloud decides and coordinates. The runner detects and executes. R2 stores large outputs. D1 indexes metadata. Durable Objects stream live run state.
 
 ## How It Works
 
-Fusion Harness uses a three-stage fusion pipeline to produce high-quality answers from multiple AI models:
+openFusion uses a three-stage fusion pipeline to produce high-quality answers from multiple AI models:
 
 1. **Panel** - Multiple agent CLIs (OpenCode, Codex, etc.) run the same prompt in parallel
 2. **Judge** - A judge model evaluates and ranks the panel outputs
@@ -42,8 +42,8 @@ Docs            Product and implementation planning docs
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/asthrix/fusion-harness.git
-cd fusion-harness
+git clone https://github.com/asthrix/openfusion.git
+cd openfusion
 npm install
 ```
 

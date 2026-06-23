@@ -43,7 +43,7 @@ func Path() (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(home, ".fusion-harness", "config.json"), nil
+	return filepath.Join(home, ".openfusion", "config.json"), nil
 }
 
 func Load() (Config, error) {

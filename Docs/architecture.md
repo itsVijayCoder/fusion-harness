@@ -1,6 +1,6 @@
 # Architecture
 
-Fusion Harness uses Cloudflare as the control plane and a native Go binary as the local execution plane.
+openFusion uses Cloudflare as the control plane and a native Go binary as the local execution plane.
 
 Cloudflare coordinates users, projects, runs, runners, presets, artifacts, audit logs, OpenAI-compatible APIs, and remote MCP.
 

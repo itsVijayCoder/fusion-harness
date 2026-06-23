@@ -8,7 +8,7 @@ import (
 )
 
 func TestDetectCommandReportsUnavailable(t *testing.T) {
-	result := DetectCommand("definitely-not-a-fusion-harness-command")
+	result := DetectCommand("definitely-not-a-openfusion-command")
 	if result.Found {
 		t.Fatalf("expected command to be unavailable")
 	}

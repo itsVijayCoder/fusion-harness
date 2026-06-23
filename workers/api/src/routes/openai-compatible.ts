@@ -1,5 +1,5 @@
-import { listModels } from "@fusion-harness/db";
-import { fusionRunRequestSchema, type ChatMessage, type FusionMode, type PermissionProfile } from "@fusion-harness/shared";
+import { listModels } from "@openfusion/db";
+import { fusionRunRequestSchema, type ChatMessage, type FusionMode, type PermissionProfile } from "@openfusion/shared";
 import { Hono } from "hono";
 import type { AppBindings } from "../env";
 import { localModelAliases } from "./models";

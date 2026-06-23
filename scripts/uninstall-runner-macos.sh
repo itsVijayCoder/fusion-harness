@@ -11,7 +11,7 @@ Usage: scripts/uninstall-runner-macos.sh [--all]
 Stops and removes the Fusion Runner macOS LaunchAgent.
 
 Options:
-  --all       Also remove ~/.fusion-harness/bin/fusion-runner and logs.
+  --all       Also remove ~/.openfusion/bin/fusion-runner and logs.
   -h, --help  Show this help.
 USAGE
 }
@@ -46,9 +46,9 @@ launchctl bootout "gui/$uid" "$plist_path" >/dev/null 2>&1 || true
 rm -f "$plist_path"
 
 if [[ "$remove_all" -eq 1 ]]; then
-  rm -f "$HOME/.fusion-harness/bin/fusion-runner"
+  rm -f "$HOME/.openfusion/bin/fusion-runner"
   rm -f "$HOME/.local/bin/fusion-runner"
-  rm -f "$HOME/.fusion-harness/logs/runner.out.log" "$HOME/.fusion-harness/logs/runner.err.log"
+  rm -f "$HOME/.openfusion/logs/runner.out.log" "$HOME/.openfusion/logs/runner.err.log"
 fi
 
 echo "Fusion Runner LaunchAgent removed."

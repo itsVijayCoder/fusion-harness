@@ -1,5 +1,5 @@
 import { RiDownloadLine } from "@remixicon/react";
-import type { ArtifactRef } from "@fusion-harness/shared";
+import type { ArtifactRef } from "@openfusion/shared";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DataNotice, Metric, PageHeader, Section } from "@/components/product-ui";

@@ -1,5 +1,5 @@
-import { createAuditEvent, getFusionRun, getFusionRunDetail, listFusionRuns, listRunEvents, updateFusionRunTitle } from "@fusion-harness/db";
-import { approvalRequestSchema, formatEntityId, fusionContinueRequestSchema, fusionRunRequestSchema, fusionRunTitleUpdateRequestSchema } from "@fusion-harness/shared";
+import { createAuditEvent, getFusionRun, getFusionRunDetail, listFusionRuns, listRunEvents, updateFusionRunTitle } from "@openfusion/db";
+import { approvalRequestSchema, formatEntityId, fusionContinueRequestSchema, fusionRunRequestSchema, fusionRunTitleUpdateRequestSchema } from "@openfusion/shared";
 import { Hono } from "hono";
 import type { AppBindings } from "../env";
 import { recordApproval } from "../services/approvals";

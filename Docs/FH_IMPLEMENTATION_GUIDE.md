@@ -1,4 +1,4 @@
-# Fusion Harness — Implementation Guide
+# openFusion — Implementation Guide
 
 **Document status:** v1.0 implementation blueprint  
 **Prepared for:** Internal engineering team  
@@ -9,7 +9,7 @@
 
 ## 1. System Summary
 
-Fusion Harness has two planes:
+openFusion has two planes:
 
 1. **Cloud control plane**
    - Next.js web app
@@ -44,7 +44,7 @@ Durable Objects stream live state.
 ## 2. Monorepo Layout
 
 ```text
-fusion-harness/
+openfusion/
   apps/
     web/
       app/
@@ -220,8 +220,8 @@ Wrangler: current stable
 ### 4.2 First setup
 
 ```bash
-git clone <repo-url> fusion-harness
-cd fusion-harness
+git clone <repo-url> openfusion
+cd openfusion
 pnpm install
 pnpm cf:login
 pnpm db:migrate:local
@@ -277,7 +277,7 @@ PUBLIC_APP_URL = "http://localhost:3000"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "fusion_harness_dev"
+database_name = "openfusion_dev"
 database_id = "REPLACE_ME"
 
 [[kv_namespaces]]
@@ -681,7 +681,7 @@ Return strict JSON only matching this schema:
 ### 8.5 Final writer prompt
 
 ```text
-You are the final response writer for Fusion Harness.
+You are the final response writer for openFusion.
 
 Use:
 - Original user request
@@ -854,8 +854,8 @@ Return aliases and discovered models:
 {
   "object": "list",
   "data": [
-    { "id": "local/fusion", "object": "model", "owned_by": "fusion-harness" },
-    { "id": "local/fusion-quality", "object": "model", "owned_by": "fusion-harness" },
+    { "id": "local/fusion", "object": "model", "owned_by": "openfusion" },
+    { "id": "local/fusion-quality", "object": "model", "owned_by": "openfusion" },
     { "id": "opencode/anthropic/claude-sonnet", "object": "model", "owned_by": "opencode" },
     { "id": "codex/gpt-5-codex", "object": "model", "owned_by": "codex" }
   ]
@@ -1906,8 +1906,8 @@ pnpm deploy
 ### 29.4 Run migrations
 
 ```bash
-wrangler d1 migrations apply fusion_harness_staging --remote
-wrangler d1 migrations apply fusion_harness_prod --remote
+wrangler d1 migrations apply openfusion_staging --remote
+wrangler d1 migrations apply openfusion_prod --remote
 ```
 
 ### 29.5 Register first runner

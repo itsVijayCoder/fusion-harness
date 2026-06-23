@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/discovery"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/executors/host"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/discovery"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/executors/host"
 )
 
 type Adapter struct {

@@ -4,7 +4,7 @@ $ProgressPreference = "SilentlyContinue"
 
 $TaskName = "AsthriX Fusion Runner"
 $DefaultCloudUrl = "https://fusion-api.asthrix.workers.dev"
-$DefaultBinaryUrl = "https://fusion-harness.asthrix.workers.dev/downloads/fusion-runner-windows-amd64.exe"
+$DefaultBinaryUrl = "https://openfusion.asthrix.workers.dev/downloads/fusion-runner-windows-amd64.exe"
 
 $CloudUrl = $DefaultCloudUrl
 $BinaryUrl = $DefaultBinaryUrl
@@ -20,7 +20,7 @@ function Show-Usage {
 Usage: windows.ps1 [options]
 
 Installs Fusion Runner as a Windows scheduled task. This hosted installer does
-not require a Fusion Harness source checkout or package.json.
+not require a openFusion source checkout or package.json.
 
 Options:
   --cloud-url URL      Fusion API URL. Defaults to production.
@@ -28,7 +28,7 @@ Options:
   --token TOKEN        Optional runner token.
   --runner-id ID       Stable runner ID. Defaults to user + computer.
   --allowed-root DIR   Workspace root the runner may use. Repeatable.
-  --install-dir DIR    Binary install directory. Defaults to %USERPROFILE%\.fusion-harness\bin.
+  --install-dir DIR    Binary install directory. Defaults to %USERPROFILE%\.openfusion\bin.
   --shim-dir DIR       Directory for fusion-runner.cmd. Defaults to install directory.
   --no-start           Install files without starting the scheduled task.
   -h, --help           Show this help.
@@ -117,7 +117,7 @@ if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
   throw "USERPROFILE is not set."
 }
 
-$ConfigDir = Join-Path $env:USERPROFILE ".fusion-harness"
+$ConfigDir = Join-Path $env:USERPROFILE ".openfusion"
 $LogDir = Join-Path $ConfigDir "logs"
 
 if ([string]::IsNullOrWhiteSpace($InstallDir)) {
@@ -328,4 +328,4 @@ Write-Host ""
 Write-Host "Runner ID: $RunnerId"
 Write-Host "Cloud URL: $CloudUrl"
 Write-Host ""
-Write-Host "Open the Fusion Harness Agents page and press Refresh."
+Write-Host "Open the openFusion Agents page and press Refresh."

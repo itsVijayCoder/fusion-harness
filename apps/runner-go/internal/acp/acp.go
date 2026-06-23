@@ -15,7 +15,7 @@ import (
 const (
 	ProtocolVersion  = 1
 	DefaultTimeout   = 15 * time.Second
-	ClientName       = "fusion-harness-detect"
+	ClientName       = "openfusion-detect"
 	ClientVersion    = "runtime-adapter"
 	DefaultModelID   = "default"
 	DefaultModelName = "Default (CLI config)"

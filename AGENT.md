@@ -1,4 +1,4 @@
-# Fusion Harness Agent Guide
+# openFusion Agent Guide
 
 This file defines how coding agents should work in this repository. Treat the two planning docs as the product source of truth:
 
@@ -7,7 +7,7 @@ This file defines how coding agents should work in this repository. Treat the tw
 
 ## Product Direction
 
-Fusion Harness is an internal multi-model coding and reasoning platform. The core architecture is split into two planes:
+openFusion is an internal multi-model coding and reasoning platform. The core architecture is split into two planes:
 
 - Cloudflare control plane: Next.js web app, Worker API, D1 metadata, Durable Objects for live run/session coordination, KV for non-critical config cache, R2 for artifacts, Workflows for durable jobs, AI Gateway for team API-key model routing, Access/Tunnel, OpenAI-compatible API, and remote MCP.
 - Go local execution plane: native runner, OpenCode adapter, Codex adapter, host executor, optional Docker executor, workspace permissions, artifact upload, audit events, and patch generation.

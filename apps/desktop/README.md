@@ -1,4 +1,4 @@
-# Fusion Harness Desktop
+# openFusion Desktop
 
 Desktop is a later-phase wrapper around the web UI plus local runner management.
 

@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters/codex"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters/opencode"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/localagents"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters/codex"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters/opencode"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/localagents"
 )
 
 type Request struct {

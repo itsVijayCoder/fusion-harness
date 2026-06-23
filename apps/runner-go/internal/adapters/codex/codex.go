@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/discovery"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/executors/host"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/localagents"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/discovery"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/executors/host"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/localagents"
 )
 
 type Adapter struct {

@@ -14,7 +14,7 @@ Stops and removes the Fusion Runner Windows scheduled task.
 
 Options:
   --all             Also remove the installed binary, command shim, and logs.
-  --install-dir DIR Binary install directory. Defaults to %USERPROFILE%\.fusion-harness\bin.
+  --install-dir DIR Binary install directory. Defaults to %USERPROFILE%\.openfusion\bin.
   --shim-dir DIR    Directory for fusion-runner.cmd. Defaults to install directory.
   -h, --help        Show this help.
 "@
@@ -71,7 +71,7 @@ if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
   throw "USERPROFILE is not set."
 }
 
-$ConfigDir = Join-Path $env:USERPROFILE ".fusion-harness"
+$ConfigDir = Join-Path $env:USERPROFILE ".openfusion"
 $LogDir = Join-Path $ConfigDir "logs"
 if ([string]::IsNullOrWhiteSpace($InstallDir)) {
   $InstallDir = if ($env:FUSION_RUNNER_INSTALL_DIR) { $env:FUSION_RUNNER_INSTALL_DIR } else { Join-Path $ConfigDir "bin" }

@@ -8,7 +8,7 @@ The runner must never read provider credential files, browser cookies, keychains
 
 ## Authentication and User Isolation
 
-Fusion Harness uses server-side D1 sessions for browser users and scoped bearer
+openFusion uses server-side D1 sessions for browser users and scoped bearer
 tokens for native runners.
 
 - Browser auth is stored in the `fh_session` HttpOnly cookie and backed by the

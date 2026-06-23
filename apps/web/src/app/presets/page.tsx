@@ -1,4 +1,4 @@
-import type { PresetConfig } from "@fusion-harness/shared";
+import type { PresetConfig } from "@openfusion/shared";
 import { PageHeader, Section, StatusPill } from "@/components/product-ui";
 
 const presets: PresetConfig[] = [

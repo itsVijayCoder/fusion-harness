@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/workspace"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/workspace"
 )
 
 type CommandSpec struct {

@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Fusion Harness, please report it responsibly.
+If you discover a security vulnerability in openFusion, please report it responsibly.
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
@@ -32,7 +32,7 @@ The following are out of scope:
 
 ## Security Defaults
 
-Fusion Harness ships with conservative security defaults:
+openFusion ships with conservative security defaults:
 
 - Default permission profile is `readonly`
 - Docker execution denies privileged mode, Docker socket mounts, and secret mounts

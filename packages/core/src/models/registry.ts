@@ -1,4 +1,4 @@
-import type { ModelRef } from "@fusion-harness/shared";
+import type { ModelRef } from "@openfusion/shared";
 
 export function groupModelsByAdapter(models: ModelRef[]) {
   const groups = new Map<ModelRef["adapter"], ModelRef[]>();

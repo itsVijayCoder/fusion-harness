@@ -1,1 +1,1 @@
-export { fusionRunRequestSchema, permissionProfileSchema, runStatusSchema } from "@fusion-harness/shared";
+export { fusionRunRequestSchema, permissionProfileSchema, runStatusSchema } from "@openfusion/shared";

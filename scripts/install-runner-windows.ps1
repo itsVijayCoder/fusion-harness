@@ -25,7 +25,7 @@ Options:
   --token TOKEN        Optional runner token.
   --runner-id ID       Stable runner ID. Defaults to user + computer.
   --allowed-root DIR   Workspace root the runner may use. Repeatable.
-  --install-dir DIR    Binary install directory. Defaults to %USERPROFILE%\.fusion-harness\bin.
+  --install-dir DIR    Binary install directory. Defaults to %USERPROFILE%\.openfusion\bin.
   --shim-dir DIR       Directory for fusion-runner.cmd. Defaults to install directory.
   --no-start           Install files without starting the scheduled task.
   --foreground         Run the runner in the foreground instead of a scheduled task.
@@ -116,7 +116,7 @@ if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
 $ScriptDir = Split-Path -Parent $PSCommandPath
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $ScriptDir "..")).Path
 $RunnerDir = Join-Path $RepoRoot "apps\runner-go"
-$ConfigDir = Join-Path $env:USERPROFILE ".fusion-harness"
+$ConfigDir = Join-Path $env:USERPROFILE ".openfusion"
 $LogDir = Join-Path $ConfigDir "logs"
 
 if ([string]::IsNullOrWhiteSpace($InstallDir)) {
@@ -367,4 +367,4 @@ Write-Host ""
 Write-Host "Runner ID: $RunnerId"
 Write-Host "Cloud URL: $CloudUrl"
 Write-Host ""
-Write-Host "Open the Fusion Harness Agents page and press Refresh."
+Write-Host "Open the openFusion Agents page and press Refresh."

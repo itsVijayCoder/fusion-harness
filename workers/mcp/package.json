@@ -1,5 +1,5 @@
 {
-  "name": "@fusion-harness/mcp",
+  "name": "@openfusion/mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fusion-harness/shared": "0.1.0",
+    "@openfusion/shared": "0.1.0",
     "hono": "^4.10.6",
     "zod": "^4.1.13"
   },

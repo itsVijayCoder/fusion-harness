@@ -1,6 +1,6 @@
 {
    "$schema": "../../node_modules/wrangler/config-schema.json",
-   "name": "fusion-harness",
+   "name": "openfusion",
    "main": ".open-next/worker.js",
    "compatibility_date": "2026-06-16",
    "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -18,7 +18,7 @@
          // Self-reference service binding, the service name must match the worker name
          // see https://opennext.js.org/cloudflare/caching
          "binding": "WORKER_SELF_REFERENCE",
-         "service": "fusion-harness",
+         "service": "openfusion",
       },
    ],
    "observability": {

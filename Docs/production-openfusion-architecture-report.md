@@ -1,4 +1,4 @@
-# Fusion Harness Production Architecture Report
+# openFusion Production Architecture Report
 
 Date: 2026-06-17
 
@@ -21,7 +21,7 @@ Next.js web console
   -> streamed trace, artifacts, audit log
 ```
 
-OpenRouter Fusion should be treated as an external cloud capability and as the reference behavior for fusion, not as the only orchestrator. OpenRouter's official Fusion router runs OpenRouter-hosted panel models, then a judge model, then an outer model response. It does not automatically run local CLIs like Codex, Claude Code, Gemini CLI, or OpenCode installed on a user's laptop. To combine local agents, Fusion Harness needs its own orchestration layer that emulates the Fusion pattern and can call OpenRouter Fusion as one participant, judge, or fallback.
+OpenRouter Fusion should be treated as an external cloud capability and as the reference behavior for fusion, not as the only orchestrator. OpenRouter's official Fusion router runs OpenRouter-hosted panel models, then a judge model, then an outer model response. It does not automatically run local CLIs like Codex, Claude Code, Gemini CLI, or OpenCode installed on a user's laptop. To combine local agents, openFusion needs its own orchestration layer that emulates the Fusion pattern and can call OpenRouter Fusion as one participant, judge, or fallback.
 
 The current repo already has useful scaffolding: a Next.js app, Hono Worker API, D1 schema, R2 artifact metadata, Durable Objects, a Go runner, local agent discovery, OpenCode/Codex adapters, and a local harness UI. The main problem is that the cloud web path is not a real execution pipeline yet. It creates queued runs and event buffers, but it does not dispatch and complete panel, judge, and final jobs through the runner with leases, streamed deltas, artifact writes, and result persistence.
 
@@ -36,7 +36,7 @@ The MVP should focus on a narrow but complete loop:
 
 ## Product Vision
 
-Fusion Harness should be the development console for "bring your own agents plus cloud fusion."
+openFusion should be the development console for "bring your own agents plus cloud fusion."
 
 The user flow should feel like:
 
@@ -165,7 +165,7 @@ Important degradation behavior from the server-tool docs:
 - If the judge fails, Fusion does not necessarily fail the whole run; it can return raw panel responses without structured analysis.
 - Hard failure is reserved for cases like all panel models failing, insufficient credits, rate limits, capped recursive invocation, or unexpected error.
 
-This should be copied into Fusion Harness. Do not fail a whole run because one panel member fails. Do not fail a whole run because judge JSON is invalid if panel outputs are usable. Make partial success a first-class state.
+This should be copied into openFusion. Do not fail a whole run because one panel member fails. Do not fail a whole run because judge JSON is invalid if panel outputs are usable. Make partial success a first-class state.
 
 Benchmark interpretation:
 
@@ -177,7 +177,7 @@ Benchmark interpretation:
 
 Product implication:
 
-Fusion Harness should expose three execution modes:
+openFusion should expose three execution modes:
 
 1. `direct`: one selected local/cloud model.
 2. `fusion-required`: always panel -> judge -> final.
@@ -198,7 +198,7 @@ OpenDesign architecture:
 
 OpenDesign's key principle:
 
-It does not ship its own general model router. It delegates the agent loop to the existing CLI. Fusion Harness should keep that principle for local agents but add a product-owned orchestration layer above them.
+It does not ship its own general model router. It delegates the agent loop to the existing CLI. openFusion should keep that principle for local agents but add a product-owned orchestration layer above them.
 
 OpenDesign local agent detection:
 
@@ -235,9 +235,9 @@ OpenDesign UI patterns worth using:
 
 OpenDesign patterns not worth copying directly:
 
-- Design systems, plugins, skills marketplace, artifact preview iframe, deck/video/image workflows. Those are core to OpenDesign but not core to Fusion Harness V1.
-- Local Node daemon architecture. Fusion Harness already chose Go for local execution, which is better for cross-platform runner distribution.
-- Product copy and landing-page structure. The Fusion Harness UI should be development-console oriented, not design-studio oriented.
+- Design systems, plugins, skills marketplace, artifact preview iframe, deck/video/image workflows. Those are core to OpenDesign but not core to openFusion V1.
+- Local Node daemon architecture. openFusion already chose Go for local execution, which is better for cross-platform runner distribution.
+- Product copy and landing-page structure. The openFusion UI should be development-console oriented, not design-studio oriented.
 
 ## OpenCode Harness Behavior
 
@@ -259,19 +259,19 @@ Official OpenCode behavior:
 - OpenCode permissions can `allow`, `ask`, or `deny` actions, including granular bash/edit rules and external directory rules.
 - OpenCode config supports provider/model settings, provider timeouts/chunk timeouts, MCP servers, plugins, instructions, and compaction.
 
-Fusion Harness OpenCode recommendations:
+openFusion OpenCode recommendations:
 
 - Prefer CLI mode for MVP: `opencode-cli run --format json`.
 - Use `--model` only when model is not `default`.
 - Deliver prompt through stdin where supported.
 - Use `OPENCODE_CONFIG_CONTENT` per run to inject controlled permissions and MCP servers.
-- Do not rely on `--dangerously-skip-permissions` as the normal path. Use it only for a clearly labeled trusted mode. The production path should map Fusion Harness permission profiles into OpenCode permission config.
+- Do not rely on `--dangerously-skip-permissions` as the normal path. Use it only for a clearly labeled trusted mode. The production path should map openFusion permission profiles into OpenCode permission config.
 - Add optional persistent server mode later: start `opencode serve` per runner and use attach/server APIs to reduce cold-start and MCP boot cost.
 - Parse JSON events into the same runner event schema used by other adapters.
 - Capture usage/cost when OpenCode emits it.
 - Recover provider failures from OpenCode logs if the CLI stalls silently.
 
-## Current Fusion Harness State
+## Current openFusion State
 
 Already present:
 

@@ -21,13 +21,13 @@ The goal is to get premium-model-like output by combining cheaper or already-ava
 
 ## 2. Core Product Rules
 
-1. Fusion Harness is only the connector and coordinator.
+1. openFusion is only the connector and coordinator.
 2. Every model run must happen inside that agent's own native CLI environment.
 3. A selected OpenCode model runs through OpenCode.
 4. A selected Codex model runs through Codex.
 5. A selected Claude model runs through Claude Code.
 6. A selected Copilot model runs through Copilot.
-7. No model should be executed by a Fusion Harness-built fake agent runtime.
+7. No model should be executed by a openFusion-built fake agent runtime.
 8. Local model availability must be discovered live per user and per machine.
 9. Local agent model catalogs must not be stored in the database.
 10. The UI can store the user's last selection locally, but not as a shared server model catalog.
@@ -41,7 +41,7 @@ The goal is to get premium-model-like output by combining cheaper or already-ava
 
 ## 3. What We Are Building
 
-Fusion Harness should provide:
+openFusion should provide:
 
 1. Local agent detection.
 2. Live model discovery from the user's installed CLIs.
@@ -57,7 +57,7 @@ Fusion Harness should provide:
    - follow-up chat turns
 7. Optional run history, trace, and artifacts.
 
-Fusion Harness should not provide:
+openFusion should not provide:
 
 1. A new model runtime.
 2. A DB-backed local model marketplace.
@@ -136,7 +136,7 @@ Adapter responsibilities:
 5. Pass the prompt through the CLI-supported input path.
 6. Use the user's workspace and CLI configuration.
 7. Capture stdout/stderr/stream events.
-8. Return the native output without pretending it came from Fusion Harness.
+8. Return the native output without pretending it came from openFusion.
 
 Adapter non-responsibilities:
 
@@ -191,7 +191,7 @@ Judge:
   codex/gpt-5-codex
 ```
 
-Fusion Harness should run:
+openFusion should run:
 
 ```text
 Process 1: OpenCode CLI with model openai/gpt-5
@@ -216,7 +216,7 @@ Rules:
 
 ## 9. Prompting Strategy
 
-The prompt layer should be light. It should guide the selected agents without turning Fusion Harness into an agent.
+The prompt layer should be light. It should guide the selected agents without turning openFusion into an agent.
 
 Panel prompt:
 
@@ -602,4 +602,4 @@ Build the local-first version first:
 4. Add chat continuation.
 5. Only after that, reconnect the hosted web app to live runner sessions without a local model DB catalog.
 
-This keeps the product simple: Fusion Harness connects local agents, collects results, judges them, and produces a better final answer. It does not become another agent platform.
+This keeps the product simple: openFusion connects local agents, collects results, judges them, and produces a better final answer. It does not become another agent platform.

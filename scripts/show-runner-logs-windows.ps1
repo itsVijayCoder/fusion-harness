@@ -5,7 +5,7 @@ if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
   throw "USERPROFILE is not set."
 }
 
-$logDir = Join-Path $env:USERPROFILE ".fusion-harness\logs"
+$logDir = Join-Path $env:USERPROFILE ".openfusion\logs"
 $paths = @(
   (Join-Path -Path $logDir -ChildPath "runner.out.log")
   (Join-Path -Path $logDir -ChildPath "runner.err.log")

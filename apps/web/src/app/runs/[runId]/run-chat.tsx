@@ -1,7 +1,7 @@
 "use client";
 
-import { computeAnalysis, confidenceLabel, type PanelOutput as AnalysisPanelOutput } from "@fusion-harness/core";
-import { extractReadableOutput, normalizeError, type ChatMessage, type FusionRunDetail, type RunEvent, type RunStatus } from "@fusion-harness/shared";
+import { computeAnalysis, confidenceLabel, type PanelOutput as AnalysisPanelOutput } from "@openfusion/core";
+import { extractReadableOutput, normalizeError, type ChatMessage, type FusionRunDetail, type RunEvent, type RunStatus } from "@openfusion/shared";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {

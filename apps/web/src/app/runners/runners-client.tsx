@@ -1,7 +1,7 @@
 "use client";
 
 import { RiArrowLeftLine } from "@remixicon/react";
-import type { ModelRef, RunnerRef, ToolKind, ToolRef } from "@fusion-harness/shared";
+import type { ModelRef, RunnerRef, ToolKind, ToolRef } from "@openfusion/shared";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { ProviderLogo, providerLabel } from "@/components/provider-logo";

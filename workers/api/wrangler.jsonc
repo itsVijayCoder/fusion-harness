@@ -9,12 +9,12 @@
   },
   "vars": {
     "ENVIRONMENT": "production",
-    "PUBLIC_APP_URL": "https://fusion-harness.asthrix.workers.dev"
+    "PUBLIC_APP_URL": "https://openfusion.asthrix.workers.dev"
   },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "fusion_harness_dev",
+      "database_name": "openfusion_dev",
       "database_id": "5b1f71c3-f792-48aa-a865-faf4cd6c67ca",
       "migrations_dir": "../../packages/db/migrations"
     }
@@ -28,7 +28,7 @@
   "r2_buckets": [
     {
       "binding": "ARTIFACTS",
-      "bucket_name": "fusion-harness-artifacts"
+      "bucket_name": "openfusion-artifacts"
     }
   ],
   "ai": {

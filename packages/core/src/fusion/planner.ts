@@ -1,4 +1,4 @@
-import type { FusionRunRequest } from "@fusion-harness/shared";
+import type { FusionRunRequest } from "@openfusion/shared";
 
 const fusionTriggers = [
   "architecture",

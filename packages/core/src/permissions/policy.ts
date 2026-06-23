@@ -1,4 +1,4 @@
-import type { PermissionProfile } from "@fusion-harness/shared";
+import type { PermissionProfile } from "@openfusion/shared";
 
 export type PermissionDecision = "allow" | "ask" | "deny";
 

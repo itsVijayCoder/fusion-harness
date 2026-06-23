@@ -16,7 +16,7 @@ const tools = [
 export default function McpSettingsPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageHeader title="MCP Settings" description="Remote Streamable HTTP endpoint and exposed Fusion Harness tools." />
+      <PageHeader title="MCP Settings" description="Remote Streamable HTTP endpoint and exposed openFusion tools." />
       <Section title="Endpoint">
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="font-mono text-sm">/mcp</p>

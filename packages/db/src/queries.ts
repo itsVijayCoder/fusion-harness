@@ -28,7 +28,7 @@ import type {
   ToolStatus,
   UserRole,
   WorkspaceRef,
-} from "@fusion-harness/shared";
+} from "@openfusion/shared";
 import type { D1DatabaseLike } from "./client";
 
 type Nullable<T> = T | null | undefined;

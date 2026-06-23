@@ -1,4 +1,4 @@
-# Fusion Harness -- Deployment Plan
+# openFusion -- Deployment Plan
 
 **Document status:** v1.0  
 **Current date:** 2026-06-17  
@@ -8,7 +8,7 @@
 
 ## 1. Deployment Architecture Overview
 
-Fusion Harness has **4 deployable units** spread across 3 environments:
+openFusion has **4 deployable units** spread across 3 environments:
 
 | Unit | Type | Platform | Package Manager |
 |---|---|---|---|
@@ -74,8 +74,8 @@ go version        # >= 1.24
 
 ```bash
 # Clone and install
-git clone <repo-url> fusion-harness
-cd fusion-harness
+git clone <repo-url> openfusion
+cd openfusion
 npm install
 
 # Verify TypeScript builds
@@ -100,9 +100,9 @@ Resources must be created **per environment** (`dev`, `staging`, `prod`). Run ea
 
 ```bash
 # Create D1 database
-npx wrangler d1 create fusion_harness_dev
-npx wrangler d1 create fusion_harness_staging
-npx wrangler d1 create fusion_harness_prod
+npx wrangler d1 create openfusion_dev
+npx wrangler d1 create openfusion_staging
+npx wrangler d1 create openfusion_prod
 ```
 
 **Output:** Each command returns a `database_id`. Copy it.
@@ -155,7 +155,7 @@ Replace placeholders with actual resource IDs from step 3:
   },
   "d1_databases": [{
     "binding": "DB",
-    "database_name": "fusion_harness_dev",
+    "database_name": "openfusion_dev",
     "database_id": "<PASTE_D1_DATABASE_ID>",
     "migrations_dir": "../../packages/db/migrations"
   }],
@@ -235,12 +235,12 @@ Deploy in this exact sequence:
 
 ```bash
 # Apply migrations (runs SQL files in packages/db/migrations/ in order)
-npx wrangler d1 migrations apply fusion_harness_dev --local
-npx wrangler d1 migrations apply fusion_harness_dev --remote
+npx wrangler d1 migrations apply openfusion_dev --local
+npx wrangler d1 migrations apply openfusion_dev --remote
 
 # For staging/prod
-npx wrangler d1 migrations apply fusion_harness_staging --remote
-npx wrangler d1 migrations apply fusion_harness_prod --remote
+npx wrangler d1 migrations apply openfusion_staging --remote
+npx wrangler d1 migrations apply openfusion_prod --remote
 ```
 
 **Migration files (run in order):**
@@ -249,7 +249,7 @@ npx wrangler d1 migrations apply fusion_harness_prod --remote
 
 **Verify:**
 ```bash
-npx wrangler d1 execute fusion_harness_dev --local --command "SELECT name FROM sqlite_master WHERE type='table';"
+npx wrangler d1 execute openfusion_dev --local --command "SELECT name FROM sqlite_master WHERE type='table';"
 ```
 
 ### 5.2 API Worker
@@ -338,7 +338,7 @@ Upload binaries to R2, GitHub Releases, or internal file server. Team members do
 
 **Option B: Homebrew (macOS)**
 ```bash
-brew tap <org>/fusion-harness
+brew tap <org>/openfusion
 brew install fusion-runner
 ```
 
@@ -394,7 +394,7 @@ fusion-runner serve
 | `ENVIRONMENT` | `dev` | `staging` | `production` |
 | `FUSION_API_URL` | `http://localhost:8787` | `<staging-api-url>` | `<prod-api-url>` |
 
-### 7.3 Go Runner (`~/.fusion-harness/config.json`)
+### 7.3 Go Runner (`~/.openfusion/config.json`)
 
 | Variable | Default | Description |
 |---|---|---|
@@ -511,7 +511,7 @@ jobs:
           node-version: 22
       - run: npm ci
       - name: Deploy Web App
-        run: npm run deploy -w @fusion-harness/web
+        run: npm run deploy -w @openfusion/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
 
@@ -628,8 +628,8 @@ The `database_id` and KV `id` fields must be set to actual Cloudflare resource I
 
 ```bash
 # If DO migration fails, delete and recreate:
-npx wrangler d1 migrations list fusion_harness_dev --remote
-npx wrangler d1 migrations apply fusion_harness_dev --remote
+npx wrangler d1 migrations list openfusion_dev --remote
+npx wrangler d1 migrations apply openfusion_dev --remote
 ```
 
 ### 11.3 OpenNext deployment fails
@@ -693,7 +693,7 @@ npx wrangler delete --config workers/api/wrangler.jsonc
 npx wrangler delete --config workers/mcp/wrangler.jsonc
 
 # Delete D1 database
-npx wrangler d1 delete fusion_harness_dev
+npx wrangler d1 delete openfusion_dev
 
 # Delete KV namespace
 npx wrangler kv namespace delete CONFIG_KV_DEV

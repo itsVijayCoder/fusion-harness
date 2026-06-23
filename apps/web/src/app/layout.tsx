@@ -17,10 +17,10 @@ const geistMono = Geist_Mono({
 	subsets: ["latin"],
 });
 
-const themeScript = `(function(){try{var t=localStorage.getItem("fusion-harness:theme")??"dark";if(t==="dark"){document.documentElement.classList.add("dark");}}catch(e){document.documentElement.classList.add("dark");}})();`;
+const themeScript = `(function(){try{var t=localStorage.getItem("openfusion:theme")??"dark";if(t==="dark"){document.documentElement.classList.add("dark");}}catch(e){document.documentElement.classList.add("dark");}})();`;
 
 export const metadata: Metadata = {
-	title: "Fusion Harness",
+	title: "openFusion",
 	description: "Internal multi-model coding and reasoning platform.",
 };
 

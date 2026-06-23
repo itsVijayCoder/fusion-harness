@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
-        title="Fusion Harness"
+        title="openFusion"
         description="Cloud control plane, local runner execution, fused model traces, and auditable coding workflows."
         actions={
           <>

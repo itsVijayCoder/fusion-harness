@@ -7,7 +7,7 @@ default_cloud_url="https://fusion-api.asthrix.workers.dev"
 cloud_url="$default_cloud_url"
 token=""
 runner_id=""
-install_dir="${FUSION_RUNNER_INSTALL_DIR:-$HOME/.fusion-harness/bin}"
+install_dir="${FUSION_RUNNER_INSTALL_DIR:-$HOME/.openfusion/bin}"
 symlink_dir="${FUSION_RUNNER_SYMLINK_DIR:-$HOME/.local/bin}"
 start_service=1
 foreground=0
@@ -25,7 +25,7 @@ Options:
   --token TOKEN        Optional runner token.
   --runner-id ID       Stable runner ID. Defaults to user + host.
   --allowed-root DIR   Workspace root the runner may use. Repeatable.
-  --install-dir DIR    Binary install directory. Defaults to ~/.fusion-harness/bin.
+  --install-dir DIR    Binary install directory. Defaults to ~/.openfusion/bin.
   --symlink-dir DIR    Directory for fusion-runner symlink. Defaults to ~/.local/bin.
   --no-start           Install files without starting the LaunchAgent.
   --foreground         Run the runner in the foreground instead of a LaunchAgent.
@@ -94,7 +94,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/.." && pwd)"
 runner_dir="$repo_root/apps/runner-go"
 binary_path="$install_dir/fusion-runner"
-config_dir="$HOME/.fusion-harness"
+config_dir="$HOME/.openfusion"
 log_dir="$config_dir/logs"
 plist_dir="$HOME/Library/LaunchAgents"
 plist_path="$plist_dir/$label.plist"
@@ -267,5 +267,5 @@ Logs:    $log_dir/runner.out.log
 Runner ID: $runner_id
 Cloud URL: $cloud_url
 
-Open the Fusion Harness Agents page and press Refresh.
+Open the openFusion Agents page and press Refresh.
 SUMMARY

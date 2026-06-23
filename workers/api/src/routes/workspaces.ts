@@ -1,4 +1,4 @@
-import { ensurePrincipal, listWorkspaces } from "@fusion-harness/db";
+import { ensurePrincipal, listWorkspaces } from "@openfusion/db";
 import { Hono } from "hono";
 import type { AppBindings } from "../env";
 import { requireAccessIdentity } from "../services/auth";

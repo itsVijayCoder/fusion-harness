@@ -1,16 +1,16 @@
-import { createAuditEvent, ensurePrincipal, listModels } from "@fusion-harness/db";
-import { formatEntityId } from "@fusion-harness/shared";
+import { createAuditEvent, ensurePrincipal, listModels } from "@openfusion/db";
+import { formatEntityId } from "@openfusion/shared";
 import { Hono } from "hono";
 import type { AppBindings } from "../env";
 import { requireAccessIdentity } from "../services/auth";
 
 export const localModelAliases = [
-  { id: "local/fusion", object: "model", owned_by: "fusion-harness" },
-  { id: "local/fusion-fast", object: "model", owned_by: "fusion-harness" },
-  { id: "local/fusion-quality", object: "model", owned_by: "fusion-harness" },
-  { id: "local/fusion-same-provider", object: "model", owned_by: "fusion-harness" },
-  { id: "local/opencode", object: "model", owned_by: "fusion-harness" },
-  { id: "local/codex", object: "model", owned_by: "fusion-harness" },
+  { id: "local/fusion", object: "model", owned_by: "openfusion" },
+  { id: "local/fusion-fast", object: "model", owned_by: "openfusion" },
+  { id: "local/fusion-quality", object: "model", owned_by: "openfusion" },
+  { id: "local/fusion-same-provider", object: "model", owned_by: "openfusion" },
+  { id: "local/opencode", object: "model", owned_by: "openfusion" },
+  { id: "local/codex", object: "model", owned_by: "openfusion" },
 ] as const;
 
 export const modelRoutes = new Hono<AppBindings>()

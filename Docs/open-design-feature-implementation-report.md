@@ -2,7 +2,7 @@
 
 ## Scope
 
-This report explains how to implement the OpenDesign-style local agent detection, model selection, judge model, and final model workflow in Fusion Harness.
+This report explains how to implement the OpenDesign-style local agent detection, model selection, judge model, and final model workflow in openFusion.
 
 Source reference analyzed:
 
@@ -39,11 +39,11 @@ Target repository analyzed:
   - `workers/api/src/durable-objects/FusionRunDO.ts`
   - `workers/api/src/durable-objects/RunnerSessionDO.ts`
 
-Note: the OpenDesign repo currently has no uncommitted code diff besides documentation. The relevant active code changes are in Fusion Harness.
+Note: the OpenDesign repo currently has no uncommitted code diff besides documentation. The relevant active code changes are in openFusion.
 
 ## Executive Summary
 
-Fusion Harness already has the right high-level primitives for this feature:
+openFusion already has the right high-level primitives for this feature:
 
 - `ModelRef`, `RunnerRef`, `ToolRef`, `FusionRunRequest`
 - runner registration with `models?: ModelRef[]`
@@ -56,9 +56,9 @@ Fusion Harness already has the right high-level primitives for this feature:
 The remaining work is not to copy OpenDesign one-to-one. The architectures differ:
 
 - OpenDesign is local daemon first: web app talks directly to a local Node daemon.
-- Fusion Harness is cloud control plane plus local Go runner: web app talks to Cloudflare, Cloudflare dispatches to a local runner.
+- openFusion is cloud control plane plus local Go runner: web app talks to Cloudflare, Cloudflare dispatches to a local runner.
 
-The correct implementation is to port the OpenDesign behavior into the Fusion Harness runner/control-plane split:
+The correct implementation is to port the OpenDesign behavior into the openFusion runner/control-plane split:
 
 1. Improve local runner discovery to match OpenDesign's executable/model detection quality.
 2. Persist detected model inventory through runner registration.
@@ -84,9 +84,9 @@ OpenDesign's useful design decisions are:
 - Prompts are sent through stdin where possible to avoid command-line length limits.
 - Structured stream parsers turn CLI output into typed UI events and failures.
 
-These decisions should be ported, but the persistence and dispatch should use Fusion Harness' cloud/runner architecture.
+These decisions should be ported, but the persistence and dispatch should use openFusion' cloud/runner architecture.
 
-## Current Fusion Harness State
+## Current openFusion State
 
 ### Already Implemented
 
@@ -173,7 +173,7 @@ The main missing pieces are:
 
 ## Recommended Architecture
 
-Fusion Harness should use this flow:
+openFusion should use this flow:
 
 ```text
 fusion-runner discover/serve
@@ -312,7 +312,7 @@ Target files:
 - `packages/core/src/models/selection.ts`
 - `apps/web/src/app/chat/task-console.tsx`
 
-OpenDesign validates custom models with a strict allowlist. Fusion Harness currently synthesizes models from any trimmed string:
+OpenDesign validates custom models with a strict allowlist. openFusion currently synthesizes models from any trimmed string:
 
 ```ts
 return synthesizeModel(normalized, fallbackAdapter);
@@ -393,7 +393,7 @@ Target files:
   - `apps/runner-go/internal/streams/opencode.go`
   - `apps/runner-go/internal/streams/codex.go`
 
-The runner should convert structured JSON events to Fusion Harness events:
+The runner should convert structured JSON events to openFusion events:
 
 - `panel.job.started`
 - `panel.output.delta`
@@ -508,7 +508,7 @@ Current UI state is local to `TaskConsole`. Add persistence for:
 Simple first step:
 
 ```text
-localStorage key: fusion-harness:model-selection
+localStorage key: openfusion:model-selection
 ```
 
 Better later:
@@ -613,7 +613,7 @@ codex exec --json --skip-git-repo-check --sandbox <policy> --model <model>
 stdin = prompt
 ```
 
-Add future support for reasoning effort if Fusion Harness wants Codex reasoning selection:
+Add future support for reasoning effort if openFusion wants Codex reasoning selection:
 
 ```text
 -c model_reasoning_effort="<low|medium|high|xhigh>"
@@ -657,7 +657,7 @@ The route now supports:
 }
 ```
 
-Keep this shape. It maps well to OpenRouter-style clients while keeping Fusion Harness semantics explicit.
+Keep this shape. It maps well to OpenRouter-style clients while keeping openFusion semantics explicit.
 
 ## Proposed Milestone Order
 
@@ -700,7 +700,7 @@ Keep this shape. It maps well to OpenRouter-style clients while keeping Fusion H
 
 Custom model IDs currently become executable argv values. They are not shell-interpolated, but they still need validation so a downstream CLI does not treat them as flags.
 
-OpenCode Desktop can install a GUI `opencode` binary. Fusion Harness should prefer `opencode-cli` to avoid spawning a GUI launcher.
+OpenCode Desktop can install a GUI `opencode` binary. openFusion should prefer `opencode-cli` to avoid spawning a GUI launcher.
 
 Prompt-in-argv will break for long design/fusion prompts. Stdin support should be treated as required, not optional.
 
@@ -727,7 +727,7 @@ The feature is complete when:
 
 ## Bottom Line
 
-Fusion Harness is already close at the contract, DB, and UI layers. The next implementation work should focus on runner parity and dispatch:
+openFusion is already close at the contract, DB, and UI layers. The next implementation work should focus on runner parity and dispatch:
 
 - make local agent/model discovery as robust as OpenDesign
 - validate custom model IDs

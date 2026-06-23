@@ -28,7 +28,7 @@ What actually happened.
 - OS: (e.g. macOS 15, Windows 11, Ubuntu 24.04)
 - Node.js version:
 - Go version:
-- Fusion Harness version/commit:
+- openFusion version/commit:
 
 ## Logs
 

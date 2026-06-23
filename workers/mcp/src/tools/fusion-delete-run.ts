@@ -1,6 +1,6 @@
 export const deleteRunTool = {
   name: "fusion.delete_run",
-  description: "Delete a Fusion Harness run. If the run is active, it is stopped before deletion.",
+  description: "Delete a openFusion run. If the run is active, it is stopped before deletion.",
   inputSchema: {
     type: "object",
     properties: {

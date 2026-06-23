@@ -38,7 +38,7 @@ func localProfilesFile() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".fusion-harness", "agents.local.json")
+	return filepath.Join(home, ".openfusion", "agents.local.json")
 }
 
 func readLocalAgentProfiles(baseDefs []AgentDef) []AgentDef {

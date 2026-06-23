@@ -64,7 +64,7 @@ export function buildFinalWriterPrompt(
   panelOutputs: Array<{ model: string; output: string }> = [],
 ) {
   return [
-    "You are the final response writer for Fusion Harness.",
+    "You are the final response writer for openFusion.",
     "",
     "Original user request:",
     userPrompt,

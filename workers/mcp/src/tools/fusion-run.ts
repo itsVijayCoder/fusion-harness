@@ -1,6 +1,6 @@
 export const runTool = {
   name: "fusion.run",
-  description: "Create a Fusion Harness run for a prompt, workspace, preset, mode, and permission profile.",
+  description: "Create a openFusion run for a prompt, workspace, preset, mode, and permission profile.",
   inputSchema: {
     type: "object",
     properties: {

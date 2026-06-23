@@ -1,6 +1,6 @@
 export const resumeRunTool = {
   name: "fusion.resume_run",
-  description: "Resume a paused Fusion Harness run.",
+  description: "Resume a paused openFusion run.",
   inputSchema: {
     type: "object",
     properties: {

@@ -5,7 +5,7 @@ interface __BaseEnv_CloudflareEnv {
 	IMAGES: ImagesBinding;
 	ASSETS: Fetcher;
 	NEXTJS_ENV: string;
-	WORKER_SELF_REFERENCE: Fetcher /* fusion-harness-client */;
+	WORKER_SELF_REFERENCE: Fetcher /* openfusion-client */;
 }
 declare namespace Cloudflare {
 	interface Env extends __BaseEnv_CloudflareEnv {}

@@ -1,9 +1,9 @@
-# Local Agent Detection Analysis — Fusion Harness vs Open Design
+# Local Agent Detection Analysis — openFusion vs Open Design
 
 **Date:** 2026-06-21
 **Scope:** Root-cause analysis of "fewer models in production than local" + upgrade roadmap
 **Reference repo:** [nexu-io/open-design](https://github.com/nexu-io/open-design) (cloned at `/Users/vijay/Documents/Development/Tools/open-design`)
-**Current repo:** Fusion Harness (`/Users/vijay/Documents/Development/AsthriX/Fusion_Harness/fusion-harness`)
+**Current repo:** openFusion (`/Users/vijay/Documents/Development/AsthriX/Fusion_Harness/fusion-harness`)
 
 ---
 
@@ -175,7 +175,7 @@ The `source` parameter is used for `availability` but ignored for `Source`. Ever
 2. `fetchModels` (custom async) — 6 agents (AMR, Pi, Claude, + 3 ACP)
 3. `detectAcpModels` (ACP JSON-RPC handshake) — 9 agents (Hermes, Devin, Kimi, Kiro, Kilo, Vibe, Trae CLI, Reasonix, AMR)
 
-Fusion Harness has **no ACP support** and **no `fetchModels` equivalent**, so 19 agents are stuck with "default" only.
+openFusion has **no ACP support** and **no `fetchModels` equivalent**, so 19 agents are stuck with "default" only.
 
 ### 3.4 Production D1 is empty without a registered runner
 
@@ -227,7 +227,7 @@ Even if all 23 agents are detected with full model lists, only `opencode` and `c
 
 ### 4.1 High-level architecture
 
-| Aspect | Open Design | Fusion Harness |
+| Aspect | Open Design | openFusion |
 |---|---|---|
 | Language | TypeScript (Node daemon) | Go (runner) + TypeScript (Worker) |
 | Detection location | Local daemon process | Go runner process |
@@ -240,7 +240,7 @@ Even if all 23 agents are detected with full model lists, only `opencode` and `c
 
 ### 4.2 Detection strategy comparison
 
-| Strategy | Open Design | Fusion Harness |
+| Strategy | Open Design | openFusion |
 |---|---|---|
 | Env override (`*_BIN`) | Yes (21 agents) | Yes (23 agents) |
 | `exec.LookPath` / PATH | Yes | Yes |
@@ -254,7 +254,7 @@ Even if all 23 agents are detected with full model lists, only `opencode` and `c
 
 ### 4.3 Model fetching strategy comparison
 
-| Strategy | Open Design | Fusion Harness |
+| Strategy | Open Design | openFusion |
 |---|---|---|
 | `listModels` (CLI subcommand) | 4 agents | 4 agents |
 | `fetchModels` (custom async) | 6 agents (AMR, Pi, Claude, + ACP) | 0 agents |
@@ -276,22 +276,22 @@ Even if all 23 agents are detected with full model lists, only `opencode` and `c
 ```
 Also respects `VP_HOME`, `NPM_CONFIG_PREFIX`, `MISE_DATA_DIR`, `FNM_DIR` env overrides. 5-second TTL cache.
 
-**Fusion Harness** (`apps/runner-go/internal/discovery/discovery.go:103-121`):
+**openFusion** (`apps/runner-go/internal/discovery/discovery.go:103-121`):
 ```go
 ~/.local/bin, ~/.npm-global/bin, ~/.bun/bin, ~/.cargo/bin
 $FH_AGENT_HOME, $FH_AGENT_HOME/bin
 /opt/homebrew/bin, /usr/local/bin  (macOS only)
 ```
 
-**Missing in Fusion Harness:** `~/.volta/bin`, `~/.asdf/shims`, `~/Library/pnpm`, `~/.npm-packages/bin`, `~/.deno/bin`, `~/go/bin`, `~/.pyenv/shims`, `~/.local/share/mise/shims`, `~/.mise/shims`, nvm/fnm per-version dirs, `~/.opencode/bin`, `~/.kimi-code/bin`, `~/.vite-plus/bin`. No env override resolution for `NPM_CONFIG_PREFIX`, `MISE_DATA_DIR`, `FNM_DIR`.
+**Missing in openFusion:** `~/.volta/bin`, `~/.asdf/shims`, `~/Library/pnpm`, `~/.npm-packages/bin`, `~/.deno/bin`, `~/go/bin`, `~/.pyenv/shims`, `~/.local/share/mise/shims`, `~/.mise/shims`, nvm/fnm per-version dirs, `~/.opencode/bin`, `~/.kimi-code/bin`, `~/.vite-plus/bin`. No env override resolution for `NPM_CONFIG_PREFIX`, `MISE_DATA_DIR`, `FNM_DIR`.
 
-**Impact:** If a user installed `opencode` via `pnpm` (lands in `~/Library/pnpm`) or `kimi` via its installer (lands in `~/.kimi-code/bin`), Fusion Harness won't find it. Open Design will.
+**Impact:** If a user installed `opencode` via `pnpm` (lands in `~/Library/pnpm`) or `kimi` via its installer (lands in `~/.kimi-code/bin`), openFusion won't find it. Open Design will.
 
 ---
 
 ## 5. Agent-by-Agent Model Listing Gap
 
-| Agent | Open Design live listing | Fusion Harness live listing | Gap |
+| Agent | Open Design live listing | openFusion live listing | Gap |
 |---|---|---|---|
 | opencode | `listModels: ["models"]` | `ListModelsArgs: ["models"]` | None |
 | codex | `listModels: ["debug", "models"]` | `ListModelsArgs: ["debug", "models"]` | None |
@@ -318,7 +318,7 @@ $FH_AGENT_HOME, $FH_AGENT_HOME/bin
 | antigravity | `fallbackModels` only | _(none)_ | **No live listing** |
 | amr (vela) | `fetchModels: vela model list --format json` | _(not in catalog)_ | **Not supported** |
 
-**Summary:** 14 of 24 open-design agents have live model fetching. 4 of 23 fusion-harness agents have live model fetching. 10 agents could gain live listing via ACP support alone.
+**Summary:** 14 of 24 open-design agents have live model fetching. 4 of 23 openfusion agents have live model fetching. 10 agents could gain live listing via ACP support alone.
 
 ---
 
@@ -371,7 +371,7 @@ The current setup is a solid foundation (clean architecture, good catalog, D1-ba
 
 2. **ACP is the industry standard for agent model listing.** 9 agents (kimi, hermes, devin, kiro, kilo, vibe, trae-cli, reasonix, amr) use the ACP (Agent Client Protocol) JSON-RPC handshake to list models. Without ACP support, these agents can never list models live.
 
-3. **The toolchain dir gap means CLIs go undetected.** If a user installs `opencode` via pnpm (lands in `~/Library/pnpm`) or `kimi` via its installer (lands in `~/.kimi-code/bin`), Fusion Harness won't find them. This directly reduces the detected agent count.
+3. **The toolchain dir gap means CLIs go undetected.** If a user installs `opencode` via pnpm (lands in `~/Library/pnpm`) or `kimi` via its installer (lands in `~/.kimi-code/bin`), openFusion won't find them. This directly reduces the detected agent count.
 
 ### Why the upgrade is zero-cost
 
@@ -446,7 +446,7 @@ ACP (Agent Client Protocol) is a JSON-RPC protocol over stdio. The handshake:
 
 | Step | File | Change |
 |---|---|---|
-| 5.1 | `apps/runner-go/internal/localagents/local-profiles.go` (new) | Read `~/.fusion-harness/agents.local.json` (or `$FH_AGENT_PROFILES_CONFIG`) |
+| 5.1 | `apps/runner-go/internal/localagents/local-profiles.go` (new) | Read `~/.openfusion/agents.local.json` (or `$FH_AGENT_PROFILES_CONFIG`) |
 | 5.2 | `apps/runner-go/internal/localagents/local-profiles.go` | Parse JSON array, create `AgentDef` inheriting from a base agent |
 | 5.3 | `apps/runner-go/internal/localagents/catalog.go` | Append local profiles to `Catalog()` result |
 
@@ -677,7 +677,7 @@ import (
     "path/filepath"
     "time"
 
-    "github.com/asthrix/fusion-harness/apps/runner-go/internal/executors/host"
+    "github.com/asthrix/openfusion/apps/runner-go/internal/executors/host"
 )
 
 type ModelOption struct {
@@ -839,7 +839,7 @@ After implementing each phase, verify:
 
 ## Appendix A: Key File Reference
 
-### Fusion Harness
+### openFusion
 
 | Purpose | File |
 |---|---|
@@ -895,7 +895,7 @@ listModels: {
 
 Used by: Codex (`debug models`), OpenCode (`models`), Cursor Agent (`models`), Grok Build (`models`).
 
-Fusion Harness equivalent: `ListModelsArgs` + `ListModelsParser`. Already implemented for the same 4 agents.
+openFusion equivalent: `ListModelsArgs` + `ListModelsParser`. Already implemented for the same 4 agents.
 
 ### Strategy 2: `fetchModels` (custom async function)
 
@@ -913,7 +913,7 @@ Used by:
 - **Pi:** `pi --list-models`, parses **stderr** TSV
 - **Claude:** `loadMmdRouteModels()` — loads from local mmd/MMS proxy routes
 
-Fusion Harness equivalent: **None.** Needs a new `FetchModels` field on `AgentDef`.
+openFusion equivalent: **None.** Needs a new `FetchModels` field on `AgentDef`.
 
 ### Strategy 3: `detectAcpModels` (ACP JSON-RPC handshake)
 
@@ -930,7 +930,7 @@ Extracts `models` or `configOptions` (where `id === "model"`) from the `session/
 
 Used by: Hermes, Devin, Kimi, Kiro, Kilo, Vibe, Trae CLI, Reasonix, AMR.
 
-Fusion Harness equivalent: **None.** Needs a new `internal/acp/` package.
+openFusion equivalent: **None.** Needs a new `internal/acp/` package.
 
 ### Fallback: `fallbackModels` (static hints)
 
@@ -945,7 +945,7 @@ fallbackModels: [
 
 Marked with `modelsSource: 'fallback'` so the UI can show "these are hints, not live-discovered."
 
-Fusion Harness equivalent: `FallbackModels` field exists but is **dead code** — never referenced in `listModels()`. Phase 1 fixes this.
+openFusion equivalent: `FallbackModels` field exists but is **dead code** — never referenced in `listModels()`. Phase 1 fixes this.
 
 ---
 

@@ -1,4 +1,4 @@
-import type { FusionRunRequest, ModelRef } from "@fusion-harness/shared";
+import type { FusionRunRequest, ModelRef } from "@openfusion/shared";
 import { buildJudgeSynthesisPrompt, buildPanelPrompt } from "./prompt-builder";
 import { classifyFusionNeed } from "./planner";
 import { selectFusionModels } from "../models/selection";

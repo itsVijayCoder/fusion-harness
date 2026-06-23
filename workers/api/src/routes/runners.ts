@@ -12,7 +12,7 @@ import {
   markRunnerJobLeased,
   registerRunner,
   updatePanelOutput,
-} from "@fusion-harness/db";
+} from "@openfusion/db";
 import {
   type ArtifactKind,
   formatEntityId,
@@ -25,7 +25,7 @@ import {
   type RunnerJob,
   type RunnerJobKind,
   type RunnerJobStatus,
-} from "@fusion-harness/shared";
+} from "@openfusion/shared";
 import { Hono } from "hono";
 import type { AppBindings, Env } from "../env";
 import { buildArtifactKey } from "../services/artifact-store";

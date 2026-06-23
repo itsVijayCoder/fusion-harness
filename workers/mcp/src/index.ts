@@ -49,7 +49,7 @@ const tools = [
 
 app.get("/", (c) =>
   c.json({
-    name: "fusion-harness-mcp",
+    name: "openfusion-mcp",
     environment: c.env.ENVIRONMENT,
     transport: "streamable-http",
     endpoint: "/mcp",

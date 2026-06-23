@@ -1,4 +1,4 @@
-import { buildJudgeSynthesisPrompt, buildPanelPrompt } from "@fusion-harness/core";
+import { buildJudgeSynthesisPrompt, buildPanelPrompt } from "@openfusion/core";
 import {
   createArtifact,
   createAuditEvent,
@@ -19,7 +19,7 @@ import {
   updateRunnerJobStatus,
   updateFusionRunStatus,
   updatePanelOutput,
-} from "@fusion-harness/db";
+} from "@openfusion/db";
 import {
   extractReadableOutput,
   formatEntityId,
@@ -36,7 +36,7 @@ import {
   type RunnerJobKind,
   type RunnerJobPayload,
   type RunnerRef,
-} from "@fusion-harness/shared";
+} from "@openfusion/shared";
 import type { Env } from "../env";
 import { buildArtifactKey } from "./artifact-store";
 import type { AccessIdentity } from "./auth";

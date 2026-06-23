@@ -1,6 +1,6 @@
 "use client";
 
-import type { ModelRef } from "@fusion-harness/shared";
+import type { ModelRef } from "@openfusion/shared";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { FusionComposer } from "./fusion-composer";

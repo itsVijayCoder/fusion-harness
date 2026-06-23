@@ -1,1 +1,1 @@
-export { selectFusionModels } from "@fusion-harness/core";
+export { selectFusionModels } from "@openfusion/core";

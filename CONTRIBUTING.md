@@ -1,6 +1,6 @@
-# Contributing to Fusion Harness
+# Contributing to openFusion
 
-Thank you for your interest in contributing to Fusion Harness. This document covers the development workflow, coding standards, and pull request process.
+Thank you for your interest in contributing to openFusion. This document covers the development workflow, coding standards, and pull request process.
 
 ## Development Setup
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing to Fusion Harness. This document cov
 ### Install and run
 
 ```bash
-git clone https://github.com/asthrix/fusion-harness.git
-cd fusion-harness
+git clone https://github.com/asthrix/openfusion.git
+cd openfusion
 npm install
 npm run dev
 ```
@@ -40,7 +40,7 @@ go test ./...
 
 ## Architecture
 
-Fusion Harness is split into two planes:
+openFusion is split into two planes:
 
 - **Cloudflare control plane**: Next.js web app, Worker API, D1 metadata, Durable Objects for live run/session coordination, KV for config cache, R2 for artifacts, Workflows for durable jobs, AI Gateway for model routing, OpenAI-compatible API, and remote MCP.
 - **Go local execution plane**: native runner, OpenCode adapter, Codex adapter, host executor, optional Docker executor, workspace permissions, artifact upload, audit events, and patch generation.

@@ -1,5 +1,5 @@
-import { createArtifact, getArtifact, listArtifactsByRun } from "@fusion-harness/db";
-import { artifactCreateRequestSchema, formatEntityId } from "@fusion-harness/shared";
+import { createArtifact, getArtifact, listArtifactsByRun } from "@openfusion/db";
+import { artifactCreateRequestSchema, formatEntityId } from "@openfusion/shared";
 import { Hono } from "hono";
 import type { AppBindings } from "../env";
 import { requireAccessIdentity } from "../services/auth";

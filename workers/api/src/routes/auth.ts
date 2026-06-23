@@ -200,7 +200,7 @@ function gitHubApiHeaders(token: string) {
   return {
     accept: "application/vnd.github+json",
     authorization: `Bearer ${token}`,
-    "user-agent": "fusion-harness",
+    "user-agent": "openfusion",
     "x-github-api-version": "2022-11-28",
   };
 }

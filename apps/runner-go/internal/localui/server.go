@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/config"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/discovery"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/fusion"
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/localagents"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/config"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/discovery"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/fusion"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/localagents"
 )
 
 type Options struct {
@@ -90,7 +90,7 @@ func Serve(ctx context.Context, options Options) error {
 		_ = server.Shutdown(shutdownCtx)
 	}()
 
-	log.Printf("Fusion Harness local UI listening on http://%s", options.Address)
+	log.Printf("openFusion local UI listening on http://%s", options.Address)
 	err := server.ListenAndServe()
 	if err == http.ErrServerClosed {
 		return nil
@@ -130,7 +130,7 @@ const indexHTML = `<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fusion Harness</title>
+  <title>openFusion</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -275,7 +275,7 @@ const indexHTML = `<!doctype html>
 <body>
   <div class="app">
     <aside class="rail">
-      <div class="brand"><span class="mark">F</span><span>Fusion Harness</span></div>
+      <div class="brand"><span class="mark">F</span><span>openFusion</span></div>
       <div class="rail-main"><button class="rail-button" onclick="location.reload()">New Fusion</button></div>
       <div class="rail-footer"><div id="agentCount">Detecting local agents...</div><div>Go runner · local CLI sessions</div></div>
     </aside>

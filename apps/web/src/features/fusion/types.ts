@@ -1,4 +1,4 @@
-import type { ModelRef } from "@fusion-harness/shared";
+import type { ModelRef } from "@openfusion/shared";
 
 export type FusionMode = "quality" | "budget" | "custom";
 

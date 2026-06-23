@@ -1,4 +1,4 @@
-import type { DashboardSnapshot } from "@fusion-harness/shared";
+import type { DashboardSnapshot } from "@openfusion/shared";
 import Link from "next/link";
 import { DataNotice, EmptyState, Metric, PageHeader, Section, StatusPill } from "@/components/product-ui";
 import { apiGet } from "@/lib/api";

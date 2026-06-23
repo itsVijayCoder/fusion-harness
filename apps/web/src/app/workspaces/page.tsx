@@ -1,4 +1,4 @@
-import type { WorkspaceRef } from "@fusion-harness/shared";
+import type { WorkspaceRef } from "@openfusion/shared";
 import { DataNotice, EmptyState, PageHeader, Section, StatusPill } from "@/components/product-ui";
 import { apiGet } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";

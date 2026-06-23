@@ -1,5 +1,5 @@
-import { ensurePrincipal } from "@fusion-harness/db";
-import { formatEntityId } from "@fusion-harness/shared";
+import { ensurePrincipal } from "@openfusion/db";
+import { formatEntityId } from "@openfusion/shared";
 import type { Env } from "../env";
 
 export type AccessIdentity = {

@@ -1,4 +1,4 @@
-import type { FusionRunDetail } from "@fusion-harness/shared";
+import type { FusionRunDetail } from "@openfusion/shared";
 import { apiGet } from "@/lib/api";
 import { RunChat } from "./run-chat";
 

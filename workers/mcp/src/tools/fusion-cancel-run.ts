@@ -1,6 +1,6 @@
 export const cancelRunTool = {
   name: "fusion.cancel_run",
-  description: "Cancel a queued or running Fusion Harness run.",
+  description: "Cancel a queued or running openFusion run.",
   inputSchema: {
     type: "object",
     properties: {

@@ -1,6 +1,6 @@
 export const getArtifactsTool = {
   name: "fusion.get_artifacts",
-  description: "List artifacts, patches, logs, and transcripts for a Fusion Harness run.",
+  description: "List artifacts, patches, logs, and transcripts for a openFusion run.",
   inputSchema: {
     type: "object",
     properties: {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asthrix/fusion-harness/apps/runner-go/internal/adapters"
+	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters"
 )
 
 func TestListModelsReturnsOnlyCliDefaultWhenListingFails(t *testing.T) {

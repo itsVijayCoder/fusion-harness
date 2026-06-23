@@ -1,4 +1,4 @@
-# Fusion Harness - Monorepo Deployment Guide
+# openFusion - Monorepo Deployment Guide
 
 ## Executive Summary
 
@@ -6,7 +6,7 @@
 
 **Can you deploy as a single unit?** Not with the current architecture. You have three separate deployable units on Cloudflare:
 
-1. **Web App** (`fusion-harness`) — OpenNext/Next.js on Cloudflare Pages/Workers
+1. **Web App** (`openfusion`) — OpenNext/Next.js on Cloudflare Pages/Workers
 2. **API Worker** (`fusion-api`) — Hono Worker with D1, KV, and Durable Objects
 3. **MCP Worker** (`fusion-mcp`) — Hono Worker proxying to the API
 
@@ -18,15 +18,15 @@ These **must** remain separate deployments because Cloudflare Workers and Pages 
 
 | Component | Type | Deploy Target | Bindings | External References |
 |---|---|---|---|---|
-| `apps/web` | Next.js + OpenNext | Cloudflare Pages (`fusion-harness`) | `IMAGES`, `ASSETS`, `WORKER_SELF_REFERENCE` | Calls `https://fusion-api.asthrix.workers.dev` |
-| `workers/api` | Hono Worker | Cloudflare Worker (`fusion-api`) | `DB` (D1), `CONFIG_KV` (KV), `FUSION_RUN` (DO), `RUNNER_SESSION` (DO) | CORS allowed from `fusion-harness` |
+| `apps/web` | Next.js + OpenNext | Cloudflare Pages (`openfusion`) | `IMAGES`, `ASSETS`, `WORKER_SELF_REFERENCE` | Calls `https://fusion-api.asthrix.workers.dev` |
+| `workers/api` | Hono Worker | Cloudflare Worker (`fusion-api`) | `DB` (D1), `CONFIG_KV` (KV), `FUSION_RUN` (DO), `RUNNER_SESSION` (DO) | CORS allowed from `openfusion` |
 | `workers/mcp` | Hono Worker | Cloudflare Worker (`fusion-mcp`) | None (stateless proxy) | Calls `https://fusion-api.asthrix.workers.dev` |
 | `apps/runner-go` | Go CLI Binary | Not deployed (local/self-hosted) | N/A | Calls local or cloud API |
 
 ### Why Bindings Cannot Be Merged Into One
 
 - **Cloudflare Pages** (where OpenNext web apps deploy) does **not** support Durable Objects or D1 databases directly inside the Pages Function in the same way Workers do.
-- The **web app** (`fusion-harness`) is built by OpenNext into a Cloudflare Worker format, but it is managed as a Pages project and expects the `WORKER_SELF_REFERENCE` service binding for its own caching behavior.
+- The **web app** (`openfusion`) is built by OpenNext into a Cloudflare Worker format, but it is managed as a Pages project and expects the `WORKER_SELF_REFERENCE` service binding for its own caching behavior.
 - The **API worker** needs D1 migrations and KV namespaces that require a true Worker environment.
 - The **MCP worker** is lightweight and stateless.
 
@@ -284,7 +284,7 @@ You currently have hardcoded URLs in `wrangler.jsonc` files:
 |---|---|
 | `apps/web/wrangler.jsonc` | `NEXT_PUBLIC_API_BASE_URL: "https://fusion-api.asthrix.workers.dev"` |
 | `apps/web/next.config.ts` | `NEXT_PUBLIC_API_BASE_URL: "https://fusion-api.asthrix.workers.dev"` |
-| `workers/api/wrangler.jsonc` | `PUBLIC_APP_URL: "https://fusion-harness.asthrix.workers.dev"` |
+| `workers/api/wrangler.jsonc` | `PUBLIC_APP_URL: "https://openfusion.asthrix.workers.dev"` |
 | `workers/mcp/wrangler.jsonc` | `FUSION_API_URL: "https://fusion-api.asthrix.workers.dev"` |
 
 ### Recommended Fix for Production/Staging
@@ -298,7 +298,7 @@ For CI/CD, you can inject environment-specific values before deploy:
 - name: Set production vars
   working-directory: apps/web
   run: |
-    echo '{"name":"fusion-harness","vars":{"NEXT_PUBLIC_API_BASE_URL":"https://fusion-api.asthrix.workers.dev"}}' > wrangler.jsonc
+    echo '{"name":"openfusion","vars":{"NEXT_PUBLIC_API_BASE_URL":"https://fusion-api.asthrix.workers.dev"}}' > wrangler.jsonc
 ```
 
 However, it is cleaner to keep `wrangler.jsonc` as the base config and use [Wrangler Environments](https://developers.cloudflare.com/workers/wrangler/environments/):
@@ -317,11 +317,11 @@ Create `wrangler.staging.jsonc` and `wrangler.production.jsonc` per worker if yo
 - [ ] Confirm Workers exist in Cloudflare Dashboard:
   - `fusion-api`
   - `fusion-mcp`
-  - `fusion-harness` (Pages project)
-- [ ] Confirm D1 database `fusion_harness_dev` and KV namespace `CONFIG_KV` exist and are bound.
+  - `openfusion` (Pages project)
+- [ ] Confirm D1 database `openfusion_dev` and KV namespace `CONFIG_KV` exist and are bound.
 - [ ] Push to `main` and verify GitHub Actions succeeds.
 - [ ] Confirm all three URLs respond:
-  - `https://fusion-harness.asthrix.workers.dev`
+  - `https://openfusion.asthrix.workers.dev`
   - `https://fusion-api.asthrix.workers.dev/api/health`
   - `https://fusion-mcp.asthrix.workers.dev`
 
@@ -337,9 +337,9 @@ This map explains where each binding lives and how to access it.
 | `CONFIG_KV` | KV Namespace | `fusion-api` | Web app, MCP worker | HTTP API calls |
 | `FUSION_RUN` | Durable Object | `fusion-api` | Web app (via API) | Internal DO stub |
 | `RUNNER_SESSION` | Durable Object | `fusion-api` | Web app (via API) | Internal DO stub |
-| `IMAGES` | Images | `fusion-harness` | Web app only | Direct binding |
-| `ASSETS` | Assets | `fusion-harness` | Web app only | Direct binding |
-| `WORKER_SELF_REFERENCE` | Service | `fusion-harness` | Web app only | Self-reference |
+| `IMAGES` | Images | `openfusion` | Web app only | Direct binding |
+| `ASSETS` | Assets | `openfusion` | Web app only | Direct binding |
+| `WORKER_SELF_REFERENCE` | Service | `openfusion` | Web app only | Self-reference |
 
 > **Important:** D1, KV, and Durable Objects cannot be directly imported or used inside the OpenNext web app. The web app **must** call the API worker over HTTP. This is by design and is the correct Cloudflare architecture.
 
@@ -347,7 +347,7 @@ This map explains where each binding lives and how to access it.
 
 ## Single Deployment? Final Verdict
 
-**No.** You cannot deploy `fusion-harness`, `fusion-api`, and `fusion-mcp` as a single Cloudflare Worker while keeping Next.js + OpenNext. You have three independent units by design.
+**No.** You cannot deploy `openfusion`, `fusion-api`, and `fusion-mcp` as a single Cloudflare Worker while keeping Next.js + OpenNext. You have three independent units by design.
 
 **What you CAN do:**
 - Merge **MCP into API** (Option B) to reduce from 3 → 2 deployments.

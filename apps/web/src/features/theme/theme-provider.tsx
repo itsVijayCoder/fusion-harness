@@ -12,7 +12,7 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "fusion-harness:theme";
+const STORAGE_KEY = "openfusion:theme";
 
 function getStoredTheme(): Theme {
   if (typeof window === "undefined") return "dark";

@@ -1,5 +1,5 @@
 import type { Env } from "../env";
-import type { ClaimedRunnerJob } from "@fusion-harness/shared";
+import type { ClaimedRunnerJob } from "@openfusion/shared";
 
 type ClaimRequest = {
   leaseOwner?: string;

@@ -8,7 +8,7 @@ import { TiltCard } from "@/components/3d/TiltCard";
 
 const projects = [
   {
-    title: "Fusion Harness",
+    title: "openFusion",
     description:
       "A cloud-native multi-model AI coding platform with real-time collaboration, model routing, and auditable execution traces.",
     tags: ["Next.js", "TypeScript", "Cloudflare Workers", "RAG"],

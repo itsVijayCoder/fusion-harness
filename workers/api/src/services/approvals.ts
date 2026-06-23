@@ -1,5 +1,5 @@
-import { createAuditEvent, updateFusionRunStatus } from "@fusion-harness/db";
-import { formatEntityId, type ApprovalRequest } from "@fusion-harness/shared";
+import { createAuditEvent, updateFusionRunStatus } from "@openfusion/db";
+import { formatEntityId, type ApprovalRequest } from "@openfusion/shared";
 import type { Env } from "../env";
 import type { AccessIdentity } from "./auth";
 import { notifyFusionRunObject } from "./runs";
