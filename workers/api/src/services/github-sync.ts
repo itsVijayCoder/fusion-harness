@@ -173,15 +173,26 @@ export async function syncPullRequestsForRepository(
 }
 
 export async function syncAll(env: Env, orgId: string): Promise<SyncResult> {
-  const installationCount = await syncInstallations(env, orgId);
+  let installationCount = 0;
+  try {
+    installationCount = await syncInstallations(env, orgId);
+  } catch (error) {
+    console.error("GitHub sync installations failed:", error instanceof Error ? error.message : String(error));
+  }
+
   const installationIds = await listAllInstallationsForSync(env, orgId);
 
   let repoCount = 0;
   let prCount = 0;
 
   for (const installationId of installationIds) {
-    const reposSynced = await syncRepositoriesForInstallation(env, orgId, installationId);
-    repoCount += reposSynced;
+    try {
+      const reposSynced = await syncRepositoriesForInstallation(env, orgId, installationId);
+      repoCount += reposSynced;
+    } catch (error) {
+      console.error(`GitHub sync repos for installation ${installationId} failed:`, error instanceof Error ? error.message : String(error));
+      continue;
+    }
 
     const repos = await listGitHubRepositoriesByInstallation(env.DB, orgId, installationId);
     for (const repo of repos) {
@@ -193,23 +204,31 @@ export async function syncAll(env: Env, orgId: string): Promise<SyncResult> {
     }
   }
 
-  await createAuditEvent(env.DB, {
-    id: formatEntityId("audit", crypto.randomUUID()),
-    orgId,
-    eventType: "github.sync",
-    metadata: { installations: installationCount, repositories: repoCount, pullRequests: prCount },
-    createdAt: new Date().toISOString(),
-  });
+  try {
+    await createAuditEvent(env.DB, {
+      id: formatEntityId("audit", crypto.randomUUID()),
+      orgId,
+      eventType: "github.sync",
+      metadata: { installations: installationCount, repositories: repoCount, pullRequests: prCount },
+      createdAt: new Date().toISOString(),
+    });
+  } catch {
+    // audit event failure is non-critical
+  }
 
   return { installations: installationCount, repositories: repoCount, pullRequests: prCount };
 }
 
 async function listAllInstallationsForSync(env: Env, orgId: string): Promise<number[]> {
-  const { results } = await env.DB
-    .prepare("SELECT installation_id FROM github_installations WHERE org_id = ? ORDER BY installation_id ASC")
-    .bind(orgId)
-    .all<{ installation_id: number }>();
-  return results.map((row) => row.installation_id);
+  try {
+    const { results } = await env.DB
+      .prepare("SELECT installation_id FROM github_installations WHERE org_id = ? ORDER BY installation_id ASC")
+      .bind(orgId)
+      .all<{ installation_id: number }>();
+    return results.map((row) => row.installation_id);
+  } catch {
+    return [];
+  }
 }
 
 export async function upsertPullRequestFromGitHub(

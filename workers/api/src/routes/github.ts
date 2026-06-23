@@ -102,11 +102,21 @@ export const githubRoutes = new Hono<AppBindings>()
   })
   .get("/installations", async (c) => {
     const principal = await requireAccessIdentity(c.env.DB, c.env, c.req.raw.headers);
-    return c.json({ data: await listGitHubInstallations(c.env.DB, principal.orgId) });
+    try {
+      return c.json({ data: await listGitHubInstallations(c.env.DB, principal.orgId) });
+    } catch (error) {
+      console.error("GitHub installations list failed:", error instanceof Error ? error.message : String(error));
+      return c.json({ data: [], error: error instanceof Error ? error.message : "Failed to list installations" });
+    }
   })
   .get("/repositories", async (c) => {
     const principal = await requireAccessIdentity(c.env.DB, c.env, c.req.raw.headers);
-    return c.json({ data: await listGitHubRepositories(c.env.DB, principal.orgId) });
+    try {
+      return c.json({ data: await listGitHubRepositories(c.env.DB, principal.orgId) });
+    } catch (error) {
+      console.error("GitHub repositories list failed:", error instanceof Error ? error.message : String(error));
+      return c.json({ data: [], error: error instanceof Error ? error.message : "Failed to list repositories" });
+    }
   })
   .post("/repositories/:repoId/link-workspace", async (c) => {
     const principal = await requireAccessIdentity(c.env.DB, c.env, c.req.raw.headers);
