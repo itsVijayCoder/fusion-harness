@@ -56,19 +56,52 @@ Find the **App ID** on the app's general settings page (it's a numeric ID like `
 
 Set the following secrets on your Cloudflare Worker (run from `workers/api/`):
 
+### GITHUB_APP_ID
+
 ```bash
 cd workers/api
-
-# Set each secret — wrangler will prompt you to enter the value
-npx wrangler secret put GITHUB_APP_ID
-# Enter the numeric App ID (e.g. 123456)
-
-npx wrangler secret put GITHUB_APP_PRIVATE_KEY
-# Paste the full contents of the .pem file including BEGIN/END lines
-
-npx wrangler secret put GITHUB_WEBHOOK_SECRET
-# Enter the webhook secret you generated in step 1
+echo "123456" | npx wrangler secret put GITHUB_APP_ID
 ```
+
+### GITHUB_APP_PRIVATE_KEY
+
+> **Critical:** Do NOT paste the key interactively. Terminal line buffering can
+> truncate multi-line PEM keys, which causes `ASN.1 parse error` or JWT signing
+> failures in production. Always pipe the `.pem` file directly.
+
+```bash
+cd workers/api
+cat /path/to/your-app-private-key.pem | npx wrangler secret put GITHUB_APP_PRIVATE_KEY
+```
+
+If you do not have the `.pem` file saved, download it from your GitHub App
+settings page (Private keys > Generate a private key) and pipe it as shown above.
+
+### GITHUB_WEBHOOK_SECRET
+
+```bash
+cd workers/api
+echo "your_webhook_secret" | npx wrangler secret put GITHUB_WEBHOOK_SECRET
+```
+
+### GITHUB_APP_SLUG (non-secret var)
+
+The app slug is used to build the install URL (`https://github.com/apps/<slug>/installations/new`)
+and as a fallback when the GitHub API is temporarily unreachable. It is not
+secret, so it goes in `wrangler.jsonc` vars, not in secrets:
+
+```jsonc
+{
+  "vars": {
+    "ENVIRONMENT": "production",
+    "PUBLIC_APP_URL": "https://your-fusion-deployment.example.com",
+    "GITHUB_APP_SLUG": "your-app-slug"
+  }
+}
+```
+
+Find the slug on your GitHub App's general settings page. It is the URL-friendly
+name shown in the app's GitHub URL (e.g. `https://github.com/apps/your-app-slug`).
 
 > **Note:** Do NOT use `--env production` — the worker config uses the default environment (no named envs are defined).
 
@@ -82,6 +115,7 @@ MIIE...
 -----END RSA PRIVATE KEY-----
 "
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
+GITHUB_APP_SLUG=your-app-slug
 ```
 
 ## 5. Install the App
@@ -93,9 +127,28 @@ GITHUB_WEBHOOK_SECRET=your_webhook_secret
 
 ## 6. Verify the Connection
 
-1. Navigate to `/settings/github` in your Fusion deployment
-2. The page should show the app as connected with the correct App ID and slug
-3. Click **Sync** to pull in installations and repositories
+1. Run the diagnostic health check:
+   ```bash
+   curl https://your-fusion-api.example.com/api/github/health
+   ```
+   Expected response with all `true` fields:
+   ```json
+   {
+     "appIdConfigured": true,
+     "privateKeyConfigured": true,
+     "webhookSecretConfigured": true,
+     "keyParseable": true,
+     "jwtGeneratable": true,
+     "appReachable": true,
+     "installationsReachable": true,
+     "error": null
+   }
+   ```
+
+2. Navigate to `/settings/github` in your Fusion deployment
+3. The page should show the app as connected with the correct App ID and slug
+4. If there is an error, the page shows a remediation banner with the exact fix command
+5. Click **Sync** to pull in installations and repositories
 
 ## 7. Configure Repository Settings
 
@@ -134,3 +187,14 @@ Map Fusion users to GitHub logins so review requests trigger correctly:
 - Fork PRs are marked as `ignored` by default and cannot trigger full reviews
 - The runner does not execute test or build commands during review (MVP)
 - All publish operations require human approval and are audited
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `ASN.1 parse error` or `Failed to sign JWT` | Private key was truncated when pasted interactively | Re-set using pipe: `cat key.pem \| npx wrangler secret put GITHUB_APP_PRIVATE_KEY` |
+| App Slug shows "Not loaded" | `GITHUB_APP_SLUG` not set and GitHub API unreachable | Set `GITHUB_APP_SLUG` in `wrangler.jsonc` vars and redeploy |
+| No installations or repos after sync | Private key corrupt — JWT cannot be generated | Run `curl /api/github/health` to diagnose, then re-set the private key |
+| `GITHUB_APP_PRIVATE_KEY is not configured` | Secret not set on the Worker | `cat key.pem \| npx wrangler secret put GITHUB_APP_PRIVATE_KEY` |
+| Install button hidden | `appSlug` is empty in `/status` response | Set `GITHUB_APP_SLUG` in `wrangler.jsonc` vars |
+| Sync returns 500 | GitHub API error or key issue | Check `/api/github/health` for the exact failure point |

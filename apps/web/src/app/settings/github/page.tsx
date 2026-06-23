@@ -5,7 +5,7 @@ import type {
   WorkspaceRef,
 } from "@fusion-harness/shared";
 import Link from "next/link";
-import { RiAddLine } from "@remixicon/react";
+import { RiAddLine, RiErrorWarningLine } from "@remixicon/react";
 import { Button } from "@/components/ui/button";
 import { DataNotice, EmptyState, PageHeader, Section, StatusPill } from "@/components/product-ui";
 import { apiGet } from "@/lib/api";
@@ -21,6 +21,7 @@ type GitHubStatusResponse = {
   appName: string;
   htmlUrl: string;
   error?: string;
+  remediation?: string;
 };
 
 type InstallationsResponse = { data: GitHubInstallationRef[] };
@@ -36,6 +37,8 @@ export default async function GitHubSettingsPage() {
       appSlug: "",
       appName: "",
       htmlUrl: "",
+      error: undefined,
+      remediation: undefined,
     }),
     apiGet<InstallationsResponse>("/api/github/installations", { data: [] }),
     apiGet<RepositoriesResponse>("/api/github/repositories", { data: [] }),
@@ -72,12 +75,37 @@ export default async function GitHubSettingsPage() {
       />
       <DataNotice source={status.source} error={status.error} />
 
+      {status.data.configured && status.data.error ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <RiErrorWarningLine aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium text-destructive">GitHub App connection error</p>
+              <p className="text-sm text-muted-foreground">{status.data.error}</p>
+              {status.data.remediation ? (
+                <div className="mt-1 rounded-md border border-border bg-muted/50 px-3 py-2">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Fix</p>
+                  <p className="mt-1 font-mono text-xs text-foreground">{status.data.remediation}</p>
+                </div>
+              ) : null}
+              <p className="mt-1 text-xs text-muted-foreground">
+                See{" "}
+                <Link href="/Docs/GITHUB_APP_SETUP.md" className="text-primary hover:underline">
+                  setup guide
+                </Link>{" "}
+                for detailed instructions.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <Section title="GitHub App Connection">
         <div className="rounded-lg border border-border bg-card p-4">
           {status.data.configured ? (
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <StatusPill value="connected" />
+                <StatusPill value={status.data.error ? "error" : "connected"} />
                 <span className="text-sm font-medium text-foreground">
                   {status.data.appName || status.data.appSlug || "Fusion GitHub App"}
                 </span>

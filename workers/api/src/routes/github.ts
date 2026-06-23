@@ -16,7 +16,7 @@ import {
 } from "@fusion-harness/shared";
 import { Hono } from "hono";
 import type { AppBindings } from "../env";
-import { GitHubAppAuth } from "../services/github-app";
+import { GitHubAppAuth, GitHubAppConfigError } from "../services/github-app";
 import { requireAccessIdentity } from "../services/auth";
 import { syncAll } from "../services/github-sync";
 
@@ -24,7 +24,15 @@ export const githubRoutes = new Hono<AppBindings>()
   .get("/status", async (c) => {
     const configured = Boolean(c.env.GITHUB_APP_ID && c.env.GITHUB_APP_PRIVATE_KEY);
     if (!configured) {
-      return c.json({ configured: false, appId: "", appSlug: "", appName: "", htmlUrl: "" });
+      return c.json({
+        configured: false,
+        appId: "",
+        appSlug: "",
+        appName: "",
+        htmlUrl: "",
+        remediation:
+          "Set GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, and GITHUB_WEBHOOK_SECRET as Worker secrets. See Docs/GITHUB_APP_SETUP.md",
+      });
     }
 
     try {
@@ -38,15 +46,59 @@ export const githubRoutes = new Hono<AppBindings>()
         htmlUrl: details.htmlUrl,
       });
     } catch (error) {
+      const isConfigError = error instanceof GitHubAppConfigError;
       return c.json({
         configured: true,
         appId: c.env.GITHUB_APP_ID,
         appSlug: c.env.GITHUB_APP_SLUG ?? "",
         appName: "",
-        htmlUrl: "",
+        htmlUrl: c.env.GITHUB_APP_SLUG ? `https://github.com/apps/${c.env.GITHUB_APP_SLUG}` : "",
         error: error instanceof Error ? error.message : "GitHub App lookup failed",
+        remediation: isConfigError ? error.remediation : undefined,
       });
     }
+  })
+  .get("/health", async (c) => {
+    const report: GitHubHealthReport = {
+      appIdConfigured: Boolean(c.env.GITHUB_APP_ID),
+      privateKeyConfigured: Boolean(c.env.GITHUB_APP_PRIVATE_KEY),
+      webhookSecretConfigured: Boolean(c.env.GITHUB_WEBHOOK_SECRET),
+      appSlugEnv: c.env.GITHUB_APP_SLUG ?? "",
+      keyParseable: false,
+      jwtGeneratable: false,
+      appReachable: false,
+      appSlug: "",
+      appName: "",
+      installationsReachable: false,
+      installationsCount: 0,
+      error: null,
+      remediation: null,
+    };
+
+    try {
+      const auth = new GitHubAppAuth(c.env);
+      report.keyParseable = true;
+      report.jwtGeneratable = true;
+
+      const details = await auth.getAppDetails();
+      report.appReachable = true;
+      report.appSlug = details.slug;
+      report.appName = details.name;
+
+      const installationsResponse = await auth.fetchAsApp("/app/installations?per_page=100");
+      if (installationsResponse.ok) {
+        report.installationsReachable = true;
+        const installations = (await installationsResponse.json()) as unknown[];
+        report.installationsCount = installations.length;
+      }
+    } catch (error) {
+      report.error = error instanceof Error ? error.message : String(error);
+      if (error instanceof GitHubAppConfigError) {
+        report.remediation = error.remediation;
+      }
+    }
+
+    return c.json(report);
   })
   .get("/installations", async (c) => {
     const principal = await requireAccessIdentity(c.env.DB, c.env, c.req.raw.headers);
@@ -181,3 +233,19 @@ export const githubRoutes = new Hono<AppBindings>()
     }
     return c.json(repo);
   });
+
+type GitHubHealthReport = {
+  appIdConfigured: boolean;
+  privateKeyConfigured: boolean;
+  webhookSecretConfigured: boolean;
+  appSlugEnv: string;
+  keyParseable: boolean;
+  jwtGeneratable: boolean;
+  appReachable: boolean;
+  appSlug: string;
+  appName: string;
+  installationsReachable: boolean;
+  installationsCount: number;
+  error: string | null;
+  remediation: string | null;
+};
