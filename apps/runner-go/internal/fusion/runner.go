@@ -42,8 +42,12 @@ type Result struct {
 	// the judge/synthesis step and expose the user-facing answer in FinalAnswer.
 	Final       *ModelOutput `json:"final,omitempty"`
 	FinalAnswer string       `json:"finalAnswer"`
-	Error       string       `json:"error,omitempty"`
-	LatencyMs   int64        `json:"latencyMs"`
+	// Analysis is the programmatic pre-analysis computed from panel outputs.
+	// It is a sidecar signal: zero token cost, used to hint the judge and to
+	// surface a confidence badge to the user.
+	Analysis  *Analysis `json:"analysis,omitempty"`
+	Error     string    `json:"error,omitempty"`
+	LatencyMs int64     `json:"latencyMs"`
 }
 
 type ModelOutput struct {
@@ -151,7 +155,11 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 	if judgeSelection.ID == "" {
 		judgeSelection = resolveModel(successfulPanel[0].ModelID, "")
 	}
-	judge := runSelectedModel(ctx, req, judgeSelection, buildJudgeSynthesisPrompt(req.Prompt, successfulPanel), "judge_synthesis")
+
+	analysis := computeAnalysis(panelOutputsForAnalysis(panel))
+	allCompleted := len(successfulPanel) == len(panel)
+	analysisHint := buildAnalysisHint(analysis, allCompleted)
+	judge := runSelectedModel(ctx, req, judgeSelection, buildJudgeSynthesisPrompt(req.Prompt, successfulPanel, analysisHint), "judge_synthesis")
 
 	status := judge.Status
 	errText := judge.Error
@@ -166,6 +174,7 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 		Panel:       panel,
 		Judge:       &judge,
 		FinalAnswer: extractFinalOutput(judge.OutputText),
+		Analysis:    &analysis,
 		Error:       errText,
 		LatencyMs:   time.Since(start).Milliseconds(),
 	}, nil
@@ -289,4 +298,16 @@ func panelRole(index int) string {
 		return panelRoles[index]
 	}
 	return fmt.Sprintf("panel-%d", index+1)
+}
+
+func panelOutputsForAnalysis(panel []ModelOutput) []PanelOutputForAnalysis {
+	out := make([]PanelOutputForAnalysis, len(panel))
+	for i, o := range panel {
+		out[i] = PanelOutputForAnalysis{
+			Model:     o.ModelID,
+			Output:    o.OutputText,
+			Completed: o.Status == "completed" && strings.TrimSpace(o.OutputText) != "",
+		}
+	}
+	return out
 }

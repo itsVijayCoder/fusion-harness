@@ -242,6 +242,13 @@ const indexHTML = `<!doctype html>
     @keyframes spin { to { transform: rotate(360deg); } }
     .trace-retry { margin-top: 6px; height: 26px; border: 1px solid var(--line-strong); background: var(--chip-bg); color: var(--soft); border-radius: 6px; padding: 0 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .trace-retry:hover { background: var(--hover-bg); color: var(--text); }
+    .analysis-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+    .analysis-bar .label { font-weight: 750; color: var(--soft); }
+    .confidence-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; }
+    .confidence-badge.high { background: color-mix(in srgb, var(--accent-2) 15%, transparent); color: var(--accent-2); }
+    .confidence-badge.medium { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+    .confidence-badge.low { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+    .analysis-meta { color: var(--muted); }
     .modal { position: fixed; inset: 0; display: none; place-items: center; padding: 18px; background: color-mix(in srgb, var(--bg) 76%, transparent); z-index: 20; }
     .modal.visible { display: grid; }
     .picker { width: min(920px, 100%); max-height: min(620px, calc(100vh - 36px)); display: grid; grid-template-columns: minmax(0, 1fr) 280px; border: 1px solid var(--line-strong); background: var(--panel); border-radius: 8px; overflow: hidden; }
@@ -433,8 +440,25 @@ const indexHTML = `<!doctype html>
       if (!output) return '';
       return '<div class="trace-item"><div class="trace-title"><span>' + output.role + ' · ' + output.modelId + '</span><span>' + output.status + '</span></div><div class="trace-meta">' + output.adapter + ' · ' + (output.latencyMs || 0) + 'ms</div>' + (output.error ? '<div class="trace-error">' + output.error + '</div>' : '') + '</div>';
     }
+    function confidenceBadge(confidence) {
+      const label = confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';
+      return '<span class="confidence-badge ' + label + '">confidence ' + label + ' · ' + (confidence * 100).toFixed(0) + '%</span>';
+    }
+    function analysisBar(analysis) {
+      if (!analysis) return '';
+      const parts = ['<div class="analysis-bar"><span class="label">Pre-analysis</span>', confidenceBadge(analysis.confidence || 0)];
+      parts.push('<span class="analysis-meta">agreement ' + ((analysis.agreementScore || 0) * 100).toFixed(0) + '%</span>');
+      if (analysis.contradictions && analysis.contradictions.length) {
+        parts.push('<span class="analysis-meta">' + analysis.contradictions.length + ' contradiction(s)</span>');
+      }
+      if (analysis.uniqueInsights && analysis.uniqueInsights.length) {
+        parts.push('<span class="analysis-meta">' + analysis.uniqueInsights.length + ' unique insight(s)</span>');
+      }
+      parts.push('</div>');
+      return parts.join('');
+    }
     function renderResult(result) {
-      $('trace').innerHTML = [...(result.panel || []), result.judge].map(traceItem).join('');
+      $('trace').innerHTML = analysisBar(result.analysis) + [...(result.panel || []), result.judge].map(traceItem).join('');
       $('finalAnswer').textContent = result.finalAnswer || result.error || 'No final answer returned.';
     }
     $('closePicker').onclick = closePicker;

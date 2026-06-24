@@ -24,7 +24,12 @@ export function buildPanelPrompt(userPrompt: string, role: string) {
   ].join("\n");
 }
 
-export function buildJudgeSynthesisPrompt(userPrompt: string, panelOutputs: Array<{ model: string; output: string }> = []) {
+export function buildJudgeSynthesisPrompt(
+  userPrompt: string,
+  panelOutputs: Array<{ model: string; output: string }> = [],
+  analysisHint = "",
+) {
+  const hintSection = analysisHint.trim() ? [analysisHint.trim(), ""] : [];
   return [
     "You are the synthesis model in a multi-model fusion system.",
     "",
@@ -36,6 +41,7 @@ export function buildJudgeSynthesisPrompt(userPrompt: string, panelOutputs: Arra
       ? panelOutputs.map((output) => `## ${output.model}\n${output.output}`).join("\n\n")
       : "Panel outputs will be supplied by the runner before execution.",
     "",
+    ...hintSection,
     "Your job:",
     "- Read all expert responses carefully.",
     "- Identify the most accurate, complete, and well-reasoned parts.",
@@ -46,6 +52,16 @@ export function buildJudgeSynthesisPrompt(userPrompt: string, panelOutputs: Arra
     "- Be thorough, concrete, and practical.",
     "- For coding tasks, include specific files, commands, and tests.",
     "- Do not claim commands ran or files changed unless evidence confirms it.",
+    "",
+    "Depth requirements:",
+    "- Cover all perspectives: correctness, performance, security, maintainability, and pragmatism.",
+    "  If a perspective is missing from all panel outputs, add it yourself.",
+    "- For every contradiction, explicitly resolve it in the final answer. State the resolution and the reasoning.",
+    "- For every gap in the panel outputs, fill it. If you cannot fill it, say so explicitly and explain why.",
+    "- Provide implementation details: specific files to change, commands to run, tests to add.",
+    "- Structure the answer with clear ## headings so the user can navigate.",
+    "- If the task is ambiguous, state your assumptions before answering.",
+    "- Escalate depth when models disagree: explain the trade-off in more detail, not less.",
     "",
     "Write ONLY the final answer in markdown.",
     "Do not write JSON, meta-analysis, or comparison reports.",
