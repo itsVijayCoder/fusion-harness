@@ -70,7 +70,7 @@ func TestBuildJudgeSynthesisPromptV2ContainsPhases(t *testing.T) {
 		{ModelID: "m1", OutputText: "answer one", Role: "correctness"},
 		{ModelID: "m2", OutputText: "answer two", Role: "performance"},
 	}
-	prompt := buildJudgeSynthesisPromptV2("do the thing", panel, "hint here")
+	prompt := buildJudgeSynthesisPromptV2("do the thing", panel, "hint here", "")
 	if !strings.Contains(prompt, "PHASE A — ANALYSIS") {
 		t.Fatalf("prompt missing Phase A section")
 	}
@@ -92,7 +92,7 @@ func TestBuildJudgeSynthesisPromptV2ContainsPhases(t *testing.T) {
 }
 
 func TestBuildJudgeSynthesisPromptV2NoPanelOutputs(t *testing.T) {
-	prompt := buildJudgeSynthesisPromptV2("do the thing", nil, "hint")
+	prompt := buildJudgeSynthesisPromptV2("do the thing", nil, "hint", "")
 	if !strings.Contains(prompt, "No panel outputs were available.") {
 		t.Fatalf("expected fallback panel text")
 	}
@@ -101,5 +101,41 @@ func TestBuildJudgeSynthesisPromptV2NoPanelOutputs(t *testing.T) {
 func TestSynthesisV2DisabledByDefault(t *testing.T) {
 	if synthesisV2Enabled() {
 		t.Fatalf("expected synthesis V2 disabled by default")
+	}
+}
+
+func TestBuildPanelPromptWithLensInjectsContext(t *testing.T) {
+	lens := Lens{Name: "correctness", Instruction: "Emphasize correctness."}
+	ctx := "PROJECT CONTEXT:\n- Tech stack: Go"
+	prompt := buildPanelPromptWithLens("do the thing", lens, ctx)
+	if !strings.Contains(prompt, "PROJECT CONTEXT:") {
+		t.Fatalf("prompt missing project context")
+	}
+	if !strings.Contains(prompt, "Ground your answer in the project context") {
+		t.Fatalf("prompt missing grounding instruction")
+	}
+}
+
+func TestBuildJudgeSynthesisPromptInjectsContext(t *testing.T) {
+	panel := []ModelOutput{{ModelID: "m1", OutputText: "answer"}}
+	ctx := "PROJECT CONTEXT:\n- Tech stack: Go"
+	prompt := buildJudgeSynthesisPrompt("do the thing", panel, "hint", ctx)
+	if !strings.Contains(prompt, "PROJECT CONTEXT:") {
+		t.Fatalf("judge prompt missing project context")
+	}
+	if !strings.Contains(prompt, "Ground the answer in the project context") {
+		t.Fatalf("judge prompt missing grounding instruction")
+	}
+}
+
+func TestBuildJudgeSynthesisPromptV2InjectsContext(t *testing.T) {
+	panel := []ModelOutput{{ModelID: "m1", OutputText: "answer"}}
+	ctx := "PROJECT CONTEXT:\n- Tech stack: Go"
+	prompt := buildJudgeSynthesisPromptV2("do the thing", panel, "hint", ctx)
+	if !strings.Contains(prompt, "PROJECT CONTEXT:") {
+		t.Fatalf("v2 judge prompt missing project context")
+	}
+	if !strings.Contains(prompt, "Ground the answer in the project context") {
+		t.Fatalf("v2 judge prompt missing grounding instruction")
 	}
 }

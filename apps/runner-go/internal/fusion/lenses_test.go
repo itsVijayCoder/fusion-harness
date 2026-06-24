@@ -21,7 +21,7 @@ func TestLensForIndexRoundRobin(t *testing.T) {
 
 func TestBuildPanelPromptWithLensIncludesInstruction(t *testing.T) {
 	lens := Lens{Name: "security", Instruction: "Emphasize security and attack surface."}
-	prompt := buildPanelPromptWithLens("do the thing", lens)
+	prompt := buildPanelPromptWithLens("do the thing", lens, "")
 	if !strings.Contains(prompt, "Emphasize: "+lens.Instruction) {
 		t.Fatalf("prompt missing lens instruction: %s", prompt)
 	}
@@ -31,7 +31,7 @@ func TestBuildPanelPromptWithLensIncludesInstruction(t *testing.T) {
 }
 
 func TestBuildPanelPromptWithoutLensIsGeneric(t *testing.T) {
-	prompt := buildPanelPromptWithLens("do the thing", Lens{})
+	prompt := buildPanelPromptWithLens("do the thing", Lens{}, "")
 	if strings.Contains(prompt, "Emphasize:") {
 		t.Fatalf("generic prompt should not contain Emphasize line: %s", prompt)
 	}

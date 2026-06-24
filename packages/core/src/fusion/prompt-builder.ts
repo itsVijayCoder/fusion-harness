@@ -24,13 +24,15 @@ export function lensForIndex(index: number): Lens {
 
 export function buildPanelPrompt(userPrompt: string, role: string) {
   void role;
-  return buildPanelPromptWithLens(userPrompt, { name: "", instruction: "" });
+  return buildPanelPromptWithLens(userPrompt, { name: "", instruction: "" }, "");
 }
 
-export function buildPanelPromptWithLens(userPrompt: string, lens: Lens) {
-  const parts: string[] = [
-    "You are an expert model participating in a multi-model fusion panel.",
-    "",
+export function buildPanelPromptWithLens(userPrompt: string, lens: Lens, projectContext = "") {
+  const parts: string[] = ["You are an expert model participating in a multi-model fusion panel."];
+  if (projectContext.trim()) {
+    parts.push("", projectContext.trim(), "");
+  }
+  parts.push(
     "Original task:",
     userPrompt,
     "",
@@ -38,7 +40,7 @@ export function buildPanelPromptWithLens(userPrompt: string, lens: Lens) {
     "- Provide your single best, most complete response to the user's request.",
     "- Do not split the work or assume other models will cover parts of it.",
     "- Give your 100% best performance as if you were the only model answering.",
-  ];
+  );
   if (lens.instruction) {
     parts.push(
       `- Emphasize: ${lens.instruction}`,
@@ -51,9 +53,11 @@ export function buildPanelPromptWithLens(userPrompt: string, lens: Lens) {
     "- Highlight risks, trade-offs, and things to be aware of.",
     "- For coding tasks, propose specific files, commands, and tests.",
     "- Do not claim you ran commands unless tool output proves it.",
-    "",
-    "Return your complete answer in markdown.",
   );
+  if (projectContext.trim()) {
+    parts.push("- Ground your answer in the project context above. Reference real files, dependencies, and conventions.");
+  }
+  parts.push("", "Return your complete answer in markdown.");
   return parts.join("\n");
 }
 
@@ -61,11 +65,17 @@ export function buildJudgeSynthesisPrompt(
   userPrompt: string,
   panelOutputs: Array<{ model: string; output: string }> = [],
   analysisHint = "",
+  projectContext = "",
 ) {
   const hintSection = analysisHint.trim() ? [analysisHint.trim(), ""] : [];
+  const contextSection = projectContext.trim() ? [projectContext.trim(), ""] : [];
+  const grounding = projectContext.trim()
+    ? ["- Ground the answer in the project context (reference real files, dependencies, conventions)."]
+    : [];
   return [
     "You are the synthesis model in a multi-model fusion system.",
     "",
+    ...contextSection,
     "Original user request:",
     userPrompt,
     "",
@@ -95,6 +105,7 @@ export function buildJudgeSynthesisPrompt(
     "- Structure the answer with clear ## headings so the user can navigate.",
     "- If the task is ambiguous, state your assumptions before answering.",
     "- Escalate depth when models disagree: explain the trade-off in more detail, not less.",
+    ...grounding,
     "",
     "Write ONLY the final answer in markdown.",
     "Do not write JSON, meta-analysis, or comparison reports.",
@@ -144,6 +155,7 @@ export function buildJudgeSynthesisPromptV2(
   userPrompt: string,
   panelOutputs: Array<{ model: string; output: string; role?: string }> = [],
   analysisHint = "",
+  projectContext = "",
 ) {
   const panelText = panelOutputs.length
     ? panelOutputs
@@ -155,10 +167,15 @@ export function buildJudgeSynthesisPromptV2(
     : "Panel outputs will be supplied by the runner before execution.";
 
   const hintSection = analysisHint.trim() ? [analysisHint.trim(), ""] : [];
+  const contextSection = projectContext.trim() ? [projectContext.trim(), ""] : [];
+  const grounding = projectContext.trim()
+    ? ["- Ground the answer in the project context (reference real files, dependencies, conventions)."]
+    : [];
 
   return [
     "You are the synthesis model in a multi-model fusion system.",
     "",
+    ...contextSection,
     "Original user request:",
     userPrompt,
     "",
@@ -192,6 +209,7 @@ export function buildJudgeSynthesisPromptV2(
     "- Do not claim commands ran or files changed unless evidence confirms it.",
     "- Do not mention which model said what in the final answer.",
     "- If there is a critical risk the user must know, add it as a > blockquote at the very end.",
+    ...grounding,
     "",
     "The user sees only the final answer (Phase B). The analysis (Phase A) is for the trace.",
   ].join("\n");

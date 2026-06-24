@@ -12,6 +12,7 @@ import (
 	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters"
 	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters/codex"
 	"github.com/asthrix/openfusion/apps/runner-go/internal/adapters/opencode"
+	contextpkg "github.com/asthrix/openfusion/apps/runner-go/internal/context"
 	"github.com/asthrix/openfusion/apps/runner-go/internal/localagents"
 )
 
@@ -30,6 +31,9 @@ type Request struct {
 	AllowedRoots      []string          `json:"-"`
 	ToolDirs          []string          `json:"-"`
 	Env               map[string]string `json:"-"`
+	// ProjectContext is an optional pre-rendered project context bundle. When
+	// empty, Execute gathers it from WorkspacePath (sidecar, zero tokens).
+	ProjectContext string `json:"-"`
 }
 
 type Result struct {
@@ -95,6 +99,16 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 		mode = "required"
 	}
 
+	// Gather project context (sidecar). Zero tokens, <200ms. If it fails or
+	// the workspace is empty, the pipeline proceeds without context — the
+	// models still run, just with less grounding. Context is a bonus, not a
+	// dependency.
+	projectContext := req.ProjectContext
+	if projectContext == "" && req.WorkspacePath != "" {
+		bundle := contextpkg.Gather(req.WorkspacePath, contextpkg.DefaultOptions())
+		projectContext = contextpkg.Render(bundle)
+	}
+
 	analysisModels := req.AnalysisModels
 	if len(analysisModels) == 0 {
 		analysisModels = defaultAnalysisModels(ctx, req.AllowedRoots, req.ToolDirs)
@@ -134,7 +148,7 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 				role = lens.Name
 			}
 			selected := resolveModel(modelID, "")
-			panel[index] = runSelectedModel(ctx, req, selected, buildPanelPromptWithLens(req.Prompt, lens), role)
+			panel[index] = runSelectedModel(ctx, req, selected, buildPanelPromptWithLens(req.Prompt, lens, projectContext), role)
 		}(index, modelID)
 	}
 	wg.Wait()
@@ -169,9 +183,9 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 	allCompleted := len(successfulPanel) == len(panel)
 	analysisHint := buildAnalysisHint(analysis, allCompleted)
 
-	judgePrompt := buildJudgeSynthesisPrompt(req.Prompt, successfulPanel, analysisHint)
+	judgePrompt := buildJudgeSynthesisPrompt(req.Prompt, successfulPanel, analysisHint, projectContext)
 	if synthesisV2Enabled() {
-		judgePrompt = buildJudgeSynthesisPromptV2(req.Prompt, successfulPanel, analysisHint)
+		judgePrompt = buildJudgeSynthesisPromptV2(req.Prompt, successfulPanel, analysisHint, projectContext)
 	}
 	judge := runSelectedModel(ctx, req, judgeSelection, judgePrompt, "judge_synthesis")
 
