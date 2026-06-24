@@ -13,6 +13,7 @@ export type Env = {
   GITHUB_OAUTH_CLIENT_ID?: string;
   GITHUB_OAUTH_CLIENT_SECRET?: string;
   FEATURE_NEW_PROMPTS?: string;
+  FEATURE_SYNTHESIS_V2?: string;
 };
 
 export type AppBindings = {

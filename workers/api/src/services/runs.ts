@@ -1,4 +1,14 @@
-import { buildJudgeSynthesisPrompt, buildPanelPrompt } from "@openfusion/core";
+import {
+  buildJudgeSynthesisPrompt,
+  buildJudgeSynthesisPromptV2,
+  buildPanelPromptWithLens,
+  computeAnalysis,
+  confidenceLabel,
+  extractSynthesisAnalysis,
+  lensForIndex,
+  panelLenses,
+  type Analysis,
+} from "@openfusion/core";
 import {
   createArtifact,
   createAuditEvent,
@@ -53,7 +63,45 @@ type CreateRunOptions = {
   conversationId?: string;
 };
 
-const panelRoles = ["architect", "critic", "implementer", "risk-reviewer", "test-planner", "maintainer"];
+function panelLensForIndex(index: number) {
+  const lens = lensForIndex(index);
+  return lens.name;
+}
+
+function lensForRole(role: string | undefined) {
+  if (!role) return { name: "", instruction: "" };
+  return panelLenses.find((l) => l.name === role) ?? { name: "", instruction: "" };
+}
+
+function synthesisV2Enabled(env: Env) {
+  return env.FEATURE_SYNTHESIS_V2 === "1" || env.FEATURE_SYNTHESIS_V2 === "true";
+}
+
+function buildAnalysisHint(analysis: Analysis, allCompleted: boolean): string {
+  const parts: string[] = [
+    "PROGRAMMATIC PRE-ANALYSIS (computed, not authoritative):",
+    `- Agreement score: ${analysis.agreementScore.toFixed(2)} (${confidenceLabel(analysis.agreementScore)})`,
+    `- Confidence: ${analysis.confidence.toFixed(2)} (${confidenceLabel(analysis.confidence)})`,
+  ];
+  if (analysis.contradictions.length > 0) {
+    parts.push(`- Likely contradictions detected: ${analysis.contradictions.map((c) => c.topic).join(", ")}`);
+  } else {
+    parts.push("- Likely contradictions detected: none");
+  }
+  if (analysis.uniqueInsights.length > 0) {
+    const counts = new Map<string, number>();
+    for (const ui of analysis.uniqueInsights) {
+      counts.set(ui.model, (counts.get(ui.model) ?? 0) + 1);
+    }
+    const insights = [...counts.entries()].map(([model, count]) => `${model} contributed ${count} unique point(s)`);
+    parts.push(`- Unique insights: ${insights.join(", ")}`);
+  } else {
+    parts.push("- Unique insights: none detected");
+  }
+  parts.push(`- All panel models completed: ${allCompleted ? "yes" : "no"}`);
+  parts.push("Use this as a hint. Verify with your own reading. Do not blindly trust these heuristics.");
+  return parts.join("\n");
+}
 
 export class RunCreationError extends Error {
   constructor(
@@ -104,7 +152,7 @@ export async function createRunFromRequest(
       kind: payload.mode === "direct" ? "direct" : "panel",
       model,
       runners,
-      role: payload.mode === "direct" ? "direct" : panelRole(index),
+      role: payload.mode === "direct" ? "direct" : panelLensForIndex(index),
     }),
   );
 
@@ -366,7 +414,8 @@ export async function retryPanelJob(
     throw new RunLifecycleError("Execution step not found for this job.");
   }
 
-  const prompt = buildPanelPrompt(userPrompt, step.role ?? "panel");
+  const lens = lensForRole(step.role);
+  const prompt = buildPanelPromptWithLens(userPrompt, lens);
   const payload: RunnerJobPayload = {
     jobId: step.jobId,
     runId: step.id,
@@ -428,7 +477,14 @@ async function getRunFinalOutput(env: Env, orgId: string, runId: string): Promis
   }
 
   if (finalText.trim()) return finalText.trim();
-  return extractFinalOutput(synthesisText);
+  const extracted = extractFinalOutput(synthesisText);
+  if (synthesisV2Enabled(env)) {
+    const split = extractSynthesisAnalysis(extracted);
+    if (split.hasAnalysis) {
+      return split.finalAnswer;
+    }
+  }
+  return extracted;
 }
 
 function eventStringData(event: RunEvent, key: string): string {
@@ -800,7 +856,7 @@ async function enqueueRunnerJob(
     now,
   });
 
-  const jobPrompt = promptOverride ?? (step.kind === "direct" ? userPrompt : buildPanelPrompt(userPrompt, step.role ?? "panel"));
+  const jobPrompt = promptOverride ?? (step.kind === "direct" ? userPrompt : buildPanelPromptWithLens(userPrompt, lensForRole(step.role)));
   const payload: RunnerJobPayload = {
     jobId: step.jobId,
     runId: step.id,
@@ -934,11 +990,25 @@ async function promptForDeferredStep(
   panelOutputs: Array<{ model: string; output: string }>,
   jobs: RunnerJob[],
 ) {
-  void env;
   void orgId;
   void runId;
   void jobs;
-  return buildJudgeSynthesisPrompt(userPrompt, panelOutputs);
+
+  const analysisInputs = panelOutputs.map((o) => ({ model: o.model, output: o.output, completed: true }));
+  const analysis = computeAnalysis(analysisInputs);
+  const allCompleted = jobs.filter((j) => j.kind === "panel").every((j) => j.status === "completed");
+  const analysisHint = buildAnalysisHint(analysis, allCompleted);
+
+  const panelOutputsForPrompt = panelOutputs.map((o, i) => ({
+    model: o.model,
+    output: o.output,
+    role: step.dependsOn?.[i] ? undefined : undefined,
+  }));
+
+  if (synthesisV2Enabled(env)) {
+    return buildJudgeSynthesisPromptV2(userPrompt, panelOutputsForPrompt, analysisHint);
+  }
+  return buildJudgeSynthesisPrompt(userPrompt, panelOutputsForPrompt, analysisHint);
 }
 
 async function hydrateStepRouting(env: Env, orgId: string, step: FusionExecutionStep): Promise<FusionExecutionStep | undefined> {
@@ -1187,10 +1257,6 @@ function fallbackTitle(text: string): string {
   const firstLine = text.split(/\r?\n/)[0]?.trim() ?? text;
   if (firstLine.length <= 60) return firstLine;
   return `${firstLine.slice(0, 57).trim()}...`;
-}
-
-function panelRole(index: number) {
-  return panelRoles[index] ?? `panel-${index + 1}`;
 }
 
 async function appendRunEvent(env: Env, orgId: string, event: RunnerEvent) {
