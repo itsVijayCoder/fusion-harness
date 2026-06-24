@@ -54,8 +54,12 @@ type Result struct {
 	// two-phase judge output (FEATURE_SYNTHESIS_V2). Empty when the feature is
 	// disabled or the model does not emit the block. Shown in the trace.
 	SynthesisAnalysis string `json:"synthesisAnalysis,omitempty"`
-	Error             string `json:"error,omitempty"`
-	LatencyMs         int64  `json:"latencyMs"`
+	// Verification is the result of the optional coverage/consistency check.
+	// nil when verification did not run (high confidence, no contradictions,
+	// non-high-stakes task).
+	Verification *VerificationResult `json:"verification,omitempty"`
+	Error        string              `json:"error,omitempty"`
+	LatencyMs    int64               `json:"latencyMs"`
 }
 
 type ModelOutput struct {
@@ -205,6 +209,39 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 		}
 	}
 
+	// Verification pass (gated). Runs only when confidence is low,
+	// contradictions were detected, or the task is high-stakes. If gaps are
+	// found, one refinement pass re-runs the judge with the gap list.
+	var verification *VerificationResult
+	if shouldVerify(&analysis, req.Prompt) {
+		contradictionTopics := make([]string, 0, len(analysis.Contradictions))
+		for _, c := range analysis.Contradictions {
+			contradictionTopics = append(contradictionTopics, c.Topic)
+		}
+		vr := verifyAnswer(VerifyOptions{
+			Confidence:     analysis.Confidence,
+			Contradictions: contradictionTopics,
+			Prompt:         req.Prompt,
+			Answer:         finalAnswer,
+		})
+		if !vr.FullyCovered {
+			refinePrompt := buildRefinementPrompt(judgePrompt, vr.Gaps, vr.UnresolvedContradictions)
+			refinedJudge := runSelectedModel(ctx, req, judgeSelection, refinePrompt, "judge_refinement")
+			if refinedJudge.Status == "completed" && strings.TrimSpace(refinedJudge.OutputText) != "" {
+				refinedAnswer := extractFinalOutput(refinedJudge.OutputText)
+				if synthesisV2Enabled() {
+					split := extractSynthesisAnalysis(refinedAnswer)
+					if split.HasAnalysis {
+						refinedAnswer = split.FinalAnswer
+					}
+				}
+				finalAnswer = refinedAnswer
+				vr.Refined = true
+			}
+		}
+		verification = &vr
+	}
+
 	return &Result{
 		RunID:             req.RunID,
 		Status:            status,
@@ -214,6 +251,7 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 		FinalAnswer:       finalAnswer,
 		Analysis:          &analysis,
 		SynthesisAnalysis: synthesisAnalysis,
+		Verification:      verification,
 		Error:             errText,
 		LatencyMs:         time.Since(start).Milliseconds(),
 	}, nil

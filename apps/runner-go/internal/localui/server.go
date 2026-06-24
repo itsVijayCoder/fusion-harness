@@ -255,6 +255,12 @@ const indexHTML = `<!doctype html>
     .synthesis-analysis summary::before { content: '▸ '; }
     .synthesis-analysis[open] summary::before { content: '▾ '; }
     .synthesis-analysis pre { margin: 8px 0 0; padding: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .verify-bar { border-bottom: 1px solid var(--line); padding: 10px 14px; font-size: 12px; color: var(--muted); }
+    .verify-bar .label { font-weight: 750; color: var(--soft); }
+    .verify-bar .ok { color: var(--accent-2); font-weight: 700; }
+    .verify-bar .warn { color: var(--danger); font-weight: 700; }
+    .verify-bar ul { margin: 6px 0 0; padding-left: 18px; }
+    .verify-bar li { color: var(--muted); }
     .modal { position: fixed; inset: 0; display: none; place-items: center; padding: 18px; background: color-mix(in srgb, var(--bg) 76%, transparent); z-index: 20; }
     .modal.visible { display: grid; }
     .picker { width: min(920px, 100%); max-height: min(620px, calc(100vh - 36px)); display: grid; grid-template-columns: minmax(0, 1fr) 280px; border: 1px solid var(--line-strong); background: var(--panel); border-radius: 8px; overflow: hidden; }
@@ -470,8 +476,23 @@ const indexHTML = `<!doctype html>
       if (!text) return '';
       return '<details class="synthesis-analysis"><summary>Synthesis analysis (Phase A)</summary><pre>' + text.replace(/</g, '&lt;') + '</pre></details>';
     }
+    function verifyBar(verification) {
+      if (!verification) return '';
+      const parts = ['<div class="verify-bar"><span class="label">Verification</span> '];
+      if (verification.fullyCovered) {
+        parts.push('<span class="ok">fully covered</span>');
+      } else {
+        parts.push('<span class="warn">gaps found' + (verification.refined ? ' · refined' : '') + '</span>');
+        parts.push('<ul>');
+        (verification.gaps || []).forEach((g) => parts.push('<li>Gap: ' + g + '</li>'));
+        (verification.unresolvedContradictions || []).forEach((c) => parts.push('<li>Unresolved: ' + c + '</li>'));
+        parts.push('</ul>');
+      }
+      parts.push('</div>');
+      return parts.join('');
+    }
     function renderResult(result) {
-      $('trace').innerHTML = analysisBar(result.analysis) + synthesisAnalysisBlock(result.synthesisAnalysis) + [...(result.panel || []), result.judge].map(traceItem).join('');
+      $('trace').innerHTML = analysisBar(result.analysis) + verifyBar(result.verification) + synthesisAnalysisBlock(result.synthesisAnalysis) + [...(result.panel || []), result.judge].map(traceItem).join('');
       $('finalAnswer').textContent = result.finalAnswer || result.error || 'No final answer returned.';
     }
     $('closePicker').onclick = closePicker;
