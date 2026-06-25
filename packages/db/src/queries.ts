@@ -554,6 +554,37 @@ export async function getRunner(db: D1DatabaseLike, orgId: string, runnerId: str
   return mapRunner(row, results, new Date().toISOString());
 }
 
+export async function deleteRunner(db: D1DatabaseLike, orgId: string, runnerId: string): Promise<boolean> {
+  const runner = await getRunner(db, orgId, runnerId);
+  if (!runner) {
+    return false;
+  }
+
+  // Remove runner-scoped models that are not referenced by panel outputs.
+  await db
+    .prepare(
+      `DELETE FROM models
+       WHERE org_id = ?
+         AND runner_id = ?
+         AND id NOT IN (SELECT model_id FROM panel_outputs)`,
+    )
+    .bind(orgId, runnerId)
+    .run();
+
+  // Mark any remaining runner-scoped models as unavailable so they stop showing
+  // up as detected agents after the runner is gone.
+  await db
+    .prepare("UPDATE models SET availability = 'unavailable', runner_id = NULL WHERE org_id = ? AND runner_id = ?")
+    .bind(orgId, runnerId)
+    .run();
+
+  await db.prepare("DELETE FROM installed_tools WHERE runner_id = ?").bind(runnerId).run();
+  await db.prepare("DELETE FROM runner_jobs WHERE org_id = ? AND runner_id = ?").bind(orgId, runnerId).run();
+  await db.prepare("DELETE FROM runners WHERE org_id = ? AND id = ?").bind(orgId, runnerId).run();
+
+  return true;
+}
+
 export async function createRunnerJob(db: D1DatabaseLike, input: CreateRunnerJobInput): Promise<RunnerJob> {
   await db
     .prepare(

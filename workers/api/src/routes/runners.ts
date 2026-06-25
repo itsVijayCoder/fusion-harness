@@ -3,6 +3,7 @@ import {
   createArtifact,
   createAuditEvent,
   createRunEvent,
+  deleteRunner,
   ensurePrincipal,
   getFusionRun,
   getRunner,
@@ -29,7 +30,7 @@ import {
 import { Hono } from "hono";
 import type { AppBindings, Env } from "../env";
 import { buildArtifactKey } from "../services/artifact-store";
-import { requireAccessIdentity, requireRunnerAccessIdentity } from "../services/auth";
+import { getOptionalAccessIdentity, requireAccessIdentity, requireRunnerAccessIdentity } from "../services/auth";
 import { notifyRunnerSessionObject } from "../services/runner-session";
 import { advanceFusionRunAfterJob, notifyFusionRunObject } from "../services/runs";
 
@@ -77,6 +78,34 @@ export const runnerRoutes = new Hono<AppBindings>()
     });
 
     return c.json(runner, 202);
+  })
+  .delete("/:id", async (c) => {
+    // Accept either a browser session (UI "Remove" button) or a runner token
+    // (uninstall script). A runner token is scoped to the same org/user that
+    // registered the runner, so it is allowed to deregister its own runner.
+    const principal = await getOptionalAccessIdentity(c.env.DB, c.env, c.req.raw.headers);
+    if (!principal) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+    const runnerId = c.req.param("id");
+    const now = new Date().toISOString();
+
+    const removed = await deleteRunner(c.env.DB, principal.orgId, runnerId);
+    if (!removed) {
+      return c.json({ error: "Runner not found" }, 404);
+    }
+
+    await createAuditEvent(c.env.DB, {
+      id: formatEntityId("audit", crypto.randomUUID()),
+      orgId: principal.orgId,
+      userId: principal.userId,
+      runnerId,
+      eventType: "runner.removed",
+      metadata: { source: principal.authMethod === "runner_token" ? "uninstall_script" : "ui" },
+      createdAt: now,
+    });
+
+    return c.json({ status: "removed", runnerId });
   })
   .post("/:id/heartbeat", async (c) => {
     const principal = await requireRunnerAccessIdentity(c.env.DB, c.env, c.req.raw.headers);

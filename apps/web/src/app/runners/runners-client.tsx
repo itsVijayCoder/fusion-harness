@@ -1,9 +1,11 @@
 "use client";
 
 import type { ModelRef, RunnerRef, ToolKind, ToolRef } from "@openfusion/shared";
+import { RiDeleteBinLine } from "@remixicon/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ProviderLogo, providerLabel } from "@/components/provider-logo";
-import { apiUrl, devHeaders } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { apiUrl, apiDelete, devHeaders } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { RunnerBootstrap } from "./runner-bootstrap";
@@ -231,6 +233,18 @@ export function RunnersClient() {
   const onlineRunners = runners.data.filter((runner) => runner.status === "online").length;
   const modelCount = models.data.length;
 
+  async function removeRunner(runnerId: string) {
+    if (!window.confirm("Remove this runner? It will be deregistered from the API and stop showing up here.")) {
+      return;
+    }
+    try {
+      await apiDelete(`/api/runners/${encodeURIComponent(runnerId)}`);
+      window.location.reload();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Failed to remove runner");
+    }
+  }
+
   return (
     <div className="min-h-full overflow-x-clip bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-8 sm:px-6 lg:px-8">
@@ -314,6 +328,7 @@ export function RunnersClient() {
                     <th className={tableHeadCellClass}>Tools</th>
                     <th className={tableHeadCellClass}>Executors</th>
                     <th className={tableHeadCellClass}>Last Seen</th>
+                    <th className={tableHeadCellClass}>{""}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -345,6 +360,18 @@ export function RunnersClient() {
                       </td>
                       <td className={cn(tableCellClass, "text-xs text-muted-foreground")}>{runner.capabilities.executors.join(", ") || "host"}</td>
                       <td className={cn(tableCellClass, "text-xs text-muted-foreground")}>{formatDateTime(runner.lastSeenAt)}</td>
+                      <td className={tableCellClass}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                          onClick={() => removeRunner(runner.id)}
+                        >
+                          <RiDeleteBinLine aria-hidden data-icon="inline-start" />
+                          Remove
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -33,8 +33,13 @@ Useful maintenance commands:
 ```bash
 npm run runner:logs:macos
 npm run runner:uninstall:macos
-npm run runner:uninstall:macos -- --all
 ```
+
+The uninstaller stops the LaunchAgent, deregisters the runner from the Fusion
+API (using the token stored in `~/.openfusion/config.json`), and removes the
+binary, config, and logs. It also cleans up the legacy `~/.fusion-harness`
+config directory used by older runner builds. Pass `--keep-files` to only stop
+and deregister, or `--skip-api` to only remove local files.
 
 ## One-time Windows install
 
@@ -75,8 +80,14 @@ Useful maintenance commands:
 ```powershell
 npm run runner:logs:windows
 npm run runner:uninstall:windows
-npm run runner:uninstall:windows -- --all
 ```
+
+The uninstaller stops the scheduled task, deregisters the runner from the
+Fusion API (using the token stored in `%USERPROFILE%\.openfusion\config.json`),
+and removes the binary, shim, config, and logs. It also cleans up the legacy
+`%USERPROFILE%\.fusion-harness` config directory used by older runner builds.
+Pass `--keep-files` to only stop and deregister, or `--skip-api` to only remove
+local files.
 
 ## Process model
 
