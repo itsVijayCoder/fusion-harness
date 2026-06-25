@@ -1,6 +1,6 @@
 "use client";
 
-import { RiClipboardLine, RiRefreshLine } from "@remixicon/react";
+import { RiClipboardLine, RiDeleteBinLine, RiRefreshLine } from "@remixicon/react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { ProviderLogo } from "@/components/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,13 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
   }, []);
   const [appUrl, cloudUrl] = useRuntimeUrls().split("|");
   const macosInstallerUrl = `${appUrl}/install/macos.sh`;
+  const macosUninstallerUrl = `${appUrl}/install/uninstall-macos.sh`;
   const macosInstallCommand = installCommand("macos", "<generated-runner-token>");
+  const macosUninstallCommand = uninstallCommand("macos");
   const windowsInstallerUrl = `${appUrl}/install/windows.ps1`;
+  const windowsUninstallerUrl = `${appUrl}/install/uninstall-windows.ps1`;
   const windowsInstallCommand = installCommand("windows", "<generated-runner-token>");
+  const windowsUninstallCommand = uninstallCommand("windows");
 
   async function copyCommand(kind: CommandKind) {
     try {
@@ -40,11 +44,30 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
     }
   }
 
+  async function copyUninstallCommand(kind: CommandKind) {
+    try {
+      setCopyError(undefined);
+      const command = uninstallCommand(kind);
+      await navigator.clipboard.writeText(command);
+      setCopied(kind);
+      window.setTimeout(() => setCopied(undefined), 1800);
+    } catch (error) {
+      setCopyError(error instanceof Error ? error.message : "Unable to copy uninstall command");
+    }
+  }
+
   function installCommand(kind: "macos" | "windows", token: string) {
     if (kind === "macos") {
       return `curl -fsSL '${macosInstallerUrl}' | bash -s -- --cloud-url '${cloudUrl}' --binary-base-url '${appUrl}/downloads' --token '${token}'`;
     }
     return `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm '${windowsInstallerUrl}'))) --cloud-url '${cloudUrl}' --token '${token}'"`;
+  }
+
+  function uninstallCommand(kind: "macos" | "windows") {
+    if (kind === "macos") {
+      return `curl -fsSL '${macosUninstallerUrl}' | bash`;
+    }
+    return `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm '${windowsUninstallerUrl}')))"`;
   }
 
   function refresh() {
@@ -74,6 +97,10 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
             <RiClipboardLine aria-hidden data-icon="inline-start" />
             {copied === preferredInstall ? "Copied" : "Copy Install"}
           </Button>
+          <Button type="button" variant="outline" size="sm" className="rounded-md" onClick={() => copyUninstallCommand(preferredInstall)}>
+            <RiDeleteBinLine aria-hidden data-icon="inline-start" />
+            {copied === preferredInstall ? "Copied" : "Copy Uninstall"}
+          </Button>
           <Button type="button" variant="outline" size="sm" className="rounded-md" onClick={refresh}>
             <RiRefreshLine aria-hidden data-icon="inline-start" />
             Refresh
@@ -81,13 +108,10 @@ export function RunnerBootstrap({ hasRunner }: RunnerBootstrapProps) {
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <CommandBlock label="macOS LaunchAgent" command={macosInstallCommand} onCopy={() => copyCommand("macos")} copied={copied === "macos"} />
-        <CommandBlock
-          label="Windows scheduled task"
-          command={windowsInstallCommand}
-          onCopy={() => copyCommand("windows")}
-          copied={copied === "windows"}
-        />
+        <CommandBlock label="macOS Install" command={macosInstallCommand} onCopy={() => copyCommand("macos")} copied={copied === "macos"} />
+        <CommandBlock label="Windows Install" command={windowsInstallCommand} onCopy={() => copyCommand("windows")} copied={copied === "windows"} />
+        <CommandBlock label="macOS Uninstall" command={macosUninstallCommand} onCopy={() => copyUninstallCommand("macos")} copied={copied === "macos"} />
+        <CommandBlock label="Windows Uninstall" command={windowsUninstallCommand} onCopy={() => copyUninstallCommand("windows")} copied={copied === "windows"} />
       </div>
     </section>
   );
