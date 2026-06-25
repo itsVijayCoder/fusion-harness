@@ -13,7 +13,7 @@ Usage: scripts\uninstall-runner-windows.ps1 [--all]
 Stops and removes the Fusion Runner Windows scheduled task.
 
 Options:
-  --all             Also remove the installed binary, command shim, and logs.
+  --all             Also remove the installed binary, command shim, config, and logs.
   --install-dir DIR Binary install directory. Defaults to %USERPROFILE%\.openfusion\bin.
   --shim-dir DIR    Directory for fusion-runner.cmd. Defaults to install directory.
   -h, --help        Show this help.
@@ -112,6 +112,7 @@ if ($RemoveAll) {
   Remove-Item -LiteralPath (Join-Path $ShimDir "fusion-runner.cmd") -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath (Join-Path $LogDir "runner.out.log") -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath (Join-Path $LogDir "runner.err.log") -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath (Join-Path $ConfigDir "config.json") -Force -ErrorAction SilentlyContinue
   Remove-FromUserPath -Directory $ShimDir
 }
 
