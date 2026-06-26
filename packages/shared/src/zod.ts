@@ -62,6 +62,7 @@ export const runEventTypeSchema = z.enum([
   "panel.job.queued",
   "panel.job.started",
   "panel.thinking.delta",
+  "panel.terminal.delta",
   "panel.output.delta",
   "panel.tool_call",
   "panel.tool_result",

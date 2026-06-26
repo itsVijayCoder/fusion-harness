@@ -141,6 +141,13 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 	}
 
 	var wg sync.WaitGroup
+	adapterLocks := make(map[string]chan struct{})
+	for _, modelID := range analysisModels {
+		selected := resolveModel(modelID, "")
+		if _, ok := adapterLocks[selected.Adapter]; !ok {
+			adapterLocks[selected.Adapter] = make(chan struct{}, 1)
+		}
+	}
 	for index, modelID := range analysisModels {
 		wg.Add(1)
 		go func(index int, modelID string) {
@@ -152,6 +159,11 @@ func Execute(ctx context.Context, req Request) (*Result, error) {
 				role = lens.Name
 			}
 			selected := resolveModel(modelID, "")
+			lock := adapterLocks[selected.Adapter]
+			if lock != nil {
+				lock <- struct{}{}
+				defer func() { <-lock }()
+			}
 			panel[index] = runSelectedModel(ctx, req, selected, buildPanelPromptWithLens(req.Prompt, lens, projectContext), role)
 		}(index, modelID)
 	}
