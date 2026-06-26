@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"strings"
 	"time"
@@ -101,7 +102,7 @@ func (adapter Adapter) Run(ctx context.Context, input adapters.RunInput, emit fu
 		}, nil
 	}
 
-	result, err := host.Run(ctx, host.CommandSpec{
+	result, err := host.RunStreaming(ctx, host.CommandSpec{
 		Name:         tool.Path,
 		Args:         args,
 		Stdin:        input.Prompt,
@@ -109,6 +110,26 @@ func (adapter Adapter) Run(ctx context.Context, input adapters.RunInput, emit fu
 		AllowedRoots: adapter.AllowedRoots,
 		Env:          input.Env,
 		Timeout:      time.Duration(input.TimeoutMs) * time.Millisecond,
+	}, func(chunk host.OutputChunk) {
+		if emit == nil {
+			return
+		}
+		emit(adapters.RunEvent{
+			Type:      "panel.terminal.delta",
+			RunID:     input.RunID,
+			JobID:     input.JobID,
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+			Data:      map[string]any{"stream": chunk.Stream, "text": chunk.Text},
+		})
+		if thinking := extractThinking(chunk.Text); thinking != "" {
+			emit(adapters.RunEvent{
+				Type:      "panel.thinking.delta",
+				RunID:     input.RunID,
+				JobID:     input.JobID,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Data:      map[string]any{"text": thinking},
+			})
+		}
 	})
 
 	status := "completed"
@@ -207,4 +228,36 @@ func appendIfMissing(items []string, item string) []string {
 		}
 	}
 	return append(append([]string{}, items...), item)
+}
+
+// extractThinking inspects a single opencode JSON event line and returns any
+// reasoning/thinking text it carries. opencode emits newline-delimited JSON
+// objects; reasoning content appears under part.text when part.type is
+// "reasoning" (or a "reasoning" top-level type). Returns "" for non-JSON or
+// non-thinking lines so the terminal stream stays raw.
+func extractThinking(line string) string {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" || (trimmed[0] != '{' && trimmed[0] != '[') {
+		return ""
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &obj); err != nil {
+		return ""
+	}
+	if t, _ := obj["type"].(string); t == "reasoning" {
+		return textOf(obj["text"])
+	}
+	if part, ok := obj["part"].(map[string]any); ok {
+		if t, _ := part["type"].(string); t == "reasoning" {
+			return textOf(part["text"])
+		}
+	}
+	return ""
+}
+
+func textOf(value any) string {
+	if s, ok := value.(string); ok {
+		return s
+	}
+	return ""
 }

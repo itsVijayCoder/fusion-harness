@@ -21,6 +21,7 @@ import {
   RiRefreshLine,
   RiRobot2Line,
   RiStopLine,
+  RiTerminalLine,
   RiUserLine,
 } from "@remixicon/react";
 import { FinalOutputModal } from "@/components/final-output-modal";
@@ -28,6 +29,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ModelBadge } from "@/components/model-badge";
 import { OutputDrawer } from "@/components/output-drawer";
 import { StatusPill } from "@/components/product-ui";
+import { TerminalModal } from "@/components/terminal-modal";
 import { Sidebar } from "@/features/fusion/sidebar";
 import type { FusionChat } from "@/features/fusion/types";
 import { apiDelete, apiPost, apiUrl, devHeaders } from "@/lib/api";
@@ -49,6 +51,9 @@ type PanelTrace = {
   error?: string;
   latencyMs?: number;
   isStreaming?: boolean;
+  terminal?: string;
+  thinking?: string;
+  queuePosition?: number;
 };
 
 type PhaseTrace = {
@@ -85,6 +90,7 @@ export function RunChat({ run }: RunChatProps) {
   const [sendError, setSendError] = useState<string | undefined>(undefined);
   const [drawer, setDrawer] = useState<DrawerState>(null);
   const [showFinalModal, setShowFinalModal] = useState(false);
+  const [terminalPanel, setTerminalPanel] = useState<PanelTrace | null>(null);
   const [showCompare, setShowCompare] = useState(false);
   const [lifecycleAction, setLifecycleAction] = useState<LifecycleAction | null>(null);
   const [chats, setChats] = useState<FusionChat[]>([]);
@@ -564,6 +570,7 @@ export function RunChat({ run }: RunChatProps) {
                   analysis={analysis}
                   isRunActive={isRunActive}
                   onOpenPanel={openPanelDrawer}
+                  onOpenTerminal={setTerminalPanel}
                   onOpenFinal={() => setShowFinalModal(true)}
                   onRetryPanel={handleRetryPanelJob}
                   retryingJobId={retryingJobId}
@@ -635,6 +642,22 @@ export function RunChat({ run }: RunChatProps) {
 
       {showCompare ? (
         <ComparisonOverlay panels={trace.panels} onClose={() => setShowCompare(false)} />
+      ) : null}
+
+      {terminalPanel ? (
+        <TerminalModal
+          modelId={terminalPanel.modelId}
+          adapter={terminalPanel.adapter}
+          role={terminalPanel.role}
+          status={terminalPanel.status}
+          text={terminalPanel.text}
+          terminal={terminalPanel.terminal}
+          thinking={terminalPanel.thinking}
+          error={terminalPanel.error}
+          latencyMs={terminalPanel.latencyMs}
+          queuePosition={terminalPanel.queuePosition}
+          onClose={() => setTerminalPanel(null)}
+        />
       ) : null}
 
       {showDetails ? <DetailsPanel run={run} onClose={() => setShowDetails(false)} /> : null}
@@ -875,6 +898,7 @@ type SourcesSectionProps = {
   analysis: ReturnType<typeof computeAnalysis> | null;
   isRunActive: boolean;
   onOpenPanel: (panel: PanelTrace) => void;
+  onOpenTerminal: (panel: PanelTrace) => void;
   onOpenFinal: () => void;
   onRetryPanel: (jobId: string) => void;
   retryingJobId?: string;
@@ -886,6 +910,7 @@ function SourcesSection({
   analysis,
   isRunActive,
   onOpenPanel,
+  onOpenTerminal,
   onOpenFinal,
   onRetryPanel,
   retryingJobId,
@@ -917,6 +942,7 @@ function SourcesSection({
               key={panel.jobId}
               panel={panel}
               onClick={() => onOpenPanel(panel)}
+              onOpenTerminal={() => onOpenTerminal(panel)}
               onRetry={() => onRetryPanel(panel.jobId)}
               isRetrying={retryingJobId === panel.jobId}
               canRetry={!isRunActive && panel.status === "failed"}
@@ -964,12 +990,14 @@ function SourcesSection({
 function ModelCard({
   panel,
   onClick,
+  onOpenTerminal,
   onRetry,
   isRetrying,
   canRetry,
 }: {
   panel: PanelTrace;
   onClick: () => void;
+  onOpenTerminal: () => void;
   onRetry: () => void;
   isRetrying: boolean;
   canRetry: boolean;
@@ -979,6 +1007,10 @@ function ModelCard({
   const hasOutput = panel.text.trim().length > 0;
   const isRunning = panel.status === "running";
   const isCompleted = panel.status === "completed";
+  const isQueued = panel.status === "queued";
+  const showTerminalButton = Boolean(
+    panel.adapter && (isRunning || isQueued || panel.terminal || panel.thinking),
+  );
 
   async function handleCopy(e: React.MouseEvent) {
     e.stopPropagation();
@@ -1023,6 +1055,21 @@ function ModelCard({
           <span className="hidden text-[11px] text-muted-foreground sm:inline">
             {panel.text.length > 999 ? `${(panel.text.length / 1000).toFixed(1)}k chars` : `${panel.text.length} chars`}
           </span>
+        ) : null}
+        {showTerminalButton ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenTerminal();
+            }}
+            title="Open live terminal"
+            className={cn(
+              "flex size-7 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground",
+              isRunning ? "text-primary opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100",
+            )}
+          >
+            <RiTerminalLine aria-hidden className="size-3.5" />
+          </button>
         ) : null}
         {hasOutput ? (
           <button
@@ -1125,7 +1172,11 @@ function statusLabel(panel: PanelTrace): string {
     parts.push("Failed");
   }
   if (panel.status === "queued") {
-    parts.push("Queued...");
+    if (typeof panel.queuePosition === "number" && panel.queuePosition > 0) {
+      parts.push(`Queued #${panel.queuePosition + 1}`);
+    } else {
+      parts.push("Queued...");
+    }
   }
   return parts.join(" · ");
 }
@@ -1455,6 +1506,15 @@ function buildTrace(events: RunEvent[], initialStatus: RunStatus, run: FusionRun
       const existing = panels.get(jobId) ?? fallbackPanel(event);
       panels.set(jobId, { ...existing, status: "running", text: existing.text + eventText(event), isStreaming: true });
     }
+    if (event.type === "panel.terminal.delta" && jobId) {
+      const existing = panels.get(jobId) ?? fallbackPanel(event);
+      const chunk = stringData(event, "text");
+      panels.set(jobId, { ...existing, status: "running", terminal: (existing.terminal ?? "") + chunk + "\n" });
+    }
+    if (event.type === "panel.thinking.delta" && jobId) {
+      const existing = panels.get(jobId) ?? fallbackPanel(event);
+      panels.set(jobId, { ...existing, status: "running", thinking: (existing.thinking ?? "") + eventText(event) });
+    }
     if (event.type === "panel.job.completed" && jobId) {
       const existing = panels.get(jobId) ?? fallbackPanel(event);
       panels.set(jobId, { ...existing, status: "completed", text: existing.text || eventText(event), isStreaming: false, latencyMs: numberData(event, "latencyMs") });
@@ -1518,8 +1578,28 @@ function buildTrace(events: RunEvent[], initialStatus: RunStatus, run: FusionRun
     }
   }
 
+  const panelList = [...panels.values()];
+
+  // Compute per-adapter queue positions: a queued panel is behind any
+  // running panel that shares its adapter. The runner serializes same-adapter
+  // runs, so this reflects the real execution order.
+  const runningByAdapter = new Map<string, number>();
+  for (const panel of panelList) {
+    if (panel.status === "running" && panel.adapter) {
+      runningByAdapter.set(panel.adapter, (runningByAdapter.get(panel.adapter) ?? 0) + 1);
+    }
+  }
+  const queuedCountByAdapter = new Map<string, number>();
+  for (const panel of panelList) {
+    if (panel.status === "queued" && panel.adapter) {
+      const ahead = (runningByAdapter.get(panel.adapter) ?? 0) + (queuedCountByAdapter.get(panel.adapter) ?? 0);
+      queuedCountByAdapter.set(panel.adapter, (queuedCountByAdapter.get(panel.adapter) ?? 0) + 1);
+      panel.queuePosition = ahead;
+    }
+  }
+
   return {
-    panels: [...panels.values()],
+    panels: panelList,
     synthesis,
     final,
     runStatus: runStatus ?? initialStatus,
