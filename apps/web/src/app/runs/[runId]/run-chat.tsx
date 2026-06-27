@@ -3,6 +3,7 @@
 import { computeAnalysis, confidenceLabel, type PanelOutput as AnalysisPanelOutput } from "@openfusion/core";
 import { extractReadableOutput, normalizeError, type ChatMessage, type FusionRunDetail, type RunEvent, type RunStatus } from "@openfusion/shared";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   RiArrowRightLine,
@@ -36,6 +37,11 @@ import { apiDelete, apiPost, apiUrl, devHeaders } from "@/lib/api";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+
+const TerminalGrid = dynamic(
+  () => import("@/components/terminal-grid").then((m) => m.TerminalGrid),
+  { ssr: false },
+);
 
 type RunChatProps = {
   run: FusionRunDetail;
@@ -225,6 +231,7 @@ export function RunChat({ run }: RunChatProps) {
   const hasPanelOutputs = trace.panels.some((p) => p.text.trim().length > 0 || p.status === "running" || p.status === "completed");
   const hasFinalOutput = finalText.trim().length > 0 || trace.final.status !== "queued";
   const showSources = hasPanels || hasFinalOutput || !isRunActive;
+  const showTerminals = hasPanels && (isRunActive || trace.panels.some((p) => Boolean(p.terminal)));
 
   const analysis = useMemo(() => {
     const completedPanels = trace.panels.filter((p) => p.status === "completed" && p.text.trim());
@@ -562,6 +569,8 @@ export function RunChat({ run }: RunChatProps) {
               )}
 
               {isRunActive && !showLiveOutput && trace.panels.length === 0 ? <ThinkingIndicator trace={trace} /> : null}
+
+              {showTerminals ? <TerminalGrid panels={trace.panels} /> : null}
 
               {showSources ? (
                 <SourcesSection
@@ -1509,7 +1518,7 @@ function buildTrace(events: RunEvent[], initialStatus: RunStatus, run: FusionRun
     if (event.type === "panel.terminal.delta" && jobId) {
       const existing = panels.get(jobId) ?? fallbackPanel(event);
       const chunk = stringData(event, "text");
-      panels.set(jobId, { ...existing, status: "running", terminal: (existing.terminal ?? "") + chunk + "\n" });
+      panels.set(jobId, { ...existing, status: "running", terminal: (existing.terminal ?? "") + chunk });
     }
     if (event.type === "panel.thinking.delta" && jobId) {
       const existing = panels.get(jobId) ?? fallbackPanel(event);
