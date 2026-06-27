@@ -32,6 +32,9 @@ jobs:
       - name: Apply D1 migrations
         run: npm run api:migrate:remote
 
+      - name: Ensure Cloudflare Queue exists
+        run: npx wrangler queues create fusion-job-work || true
+
       - name: Deploy API
         run: npm run api:deploy
 
